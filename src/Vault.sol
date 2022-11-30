@@ -9,7 +9,7 @@ import "openzeppelin-contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/token/ERC721/IERC721Receiver.sol";
 import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
 import "openzeppelin-contracts/interfaces/IERC1271.sol";
-import "openzeppelin-contracts/utils/cryptography/ECDSA.sol";
+import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 
 import "./VaultRegistry.sol";
 
@@ -78,15 +78,13 @@ contract Vault is Initializable {
         onlyVault
         returns (bytes4 magicValue)
     {
-        (address signer, ECDSA.RecoverError error) = ECDSA.tryRecover(
+        bool isValid = SignatureChecker.isValidSignatureNow(
+            IERC721(tokenCollection).ownerOf(tokenId),
             _hash,
             _signature
         );
 
-        if (
-            error == ECDSA.RecoverError.NoError &&
-            signer == IERC721(tokenCollection).ownerOf(tokenId)
-        ) {
+        if (isValid) {
             return IERC1271.isValidSignature.selector;
         }
     }
