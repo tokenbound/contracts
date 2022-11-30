@@ -8,6 +8,7 @@ import "openzeppelin-contracts/proxy/utils/Initializable.sol";
 import "openzeppelin-contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/token/ERC721/IERC721Receiver.sol";
 import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
+import "openzeppelin-contracts/interfaces/IERC1271.sol";
 import "openzeppelin-contracts/utils/cryptography/ECDSA.sol";
 
 import "./VaultRegistry.sol";
@@ -19,13 +20,29 @@ contract Vault is Initializable {
     // check nft ownership
     // extensible as fuck
 
-    VaultRegistry vaultRegistry;
+    address vaultRegistry;
+    address tokenCollection;
+    uint256 tokenId;
 
-    function initialize(address _vaultRegistry) public initializer {
-        vaultRegistry = VaultRegistry(_vaultRegistry);
+    function initialize(
+        address _vaultRegistry,
+        address _tokenCollection,
+        uint256 _tokenId
+    ) public initializer {
+        vaultRegistry = _vaultRegistry;
+        require(
+            address(this) ==
+                VaultRegistry(vaultRegistry).getVault(
+                    _tokenCollection,
+                    _tokenId
+                ),
+            "Not vault"
+        );
+        tokenCollection = _tokenCollection;
+        tokenId = _tokenId;
     }
 
-    modifier onlyOwner(address tokenCollection, uint256 tokenId) {
+    modifier onlyOwner() {
         require(
             msg.sender == IERC721(tokenCollection).ownerOf(tokenId),
             "Not owner"
@@ -33,10 +50,10 @@ contract Vault is Initializable {
         _;
     }
 
-    modifier onlyVault(address tokenCollection, uint256 tokenId) {
+    modifier onlyVault() {
         require(
             address(this) ==
-                address(vaultRegistry.getVault(tokenCollection, tokenId)),
+                VaultRegistry(vaultRegistry).getVault(tokenCollection, tokenId),
             "Not vault"
         );
         _;
@@ -45,28 +62,20 @@ contract Vault is Initializable {
     function execTransaction(
         address payable to,
         uint256 value,
-        bytes calldata data,
-        address tokenCollection,
-        uint256 tokenId
-    )
-        public
-        payable
-        onlyVault(tokenCollection, tokenId)
-        onlyOwner(tokenCollection, tokenId)
-        returns (bool success, bytes memory returnData)
-    {
-        (success, returnData) = to.call{value: value}(data);
+        bytes calldata data
+    ) public payable onlyVault onlyOwner {
+        (bool success, bytes memory result) = to.call{value: value}(data);
+        if (!success) {
+            assembly {
+                revert(add(result, 32), mload(result))
+            }
+        }
     }
 
-    function isValidSignature(
-        bytes32 _hash,
-        bytes memory _signature,
-        address tokenCollection,
-        uint256 tokenId
-    )
+    function isValidSignature(bytes32 _hash, bytes memory _signature)
         public
         view
-        onlyVault(tokenCollection, tokenId)
+        onlyVault
         returns (bytes4 magicValue)
     {
         (address signer, ECDSA.RecoverError error) = ECDSA.tryRecover(
@@ -78,7 +87,7 @@ contract Vault is Initializable {
             error == ECDSA.RecoverError.NoError &&
             signer == IERC721(tokenCollection).ownerOf(tokenId)
         ) {
-            return this.isValidSignature.selector;
+            return IERC1271.isValidSignature.selector;
         }
     }
 

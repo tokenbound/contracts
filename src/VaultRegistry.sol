@@ -26,8 +26,10 @@ contract VaultRegistry {
         bytes32 salt = keccak256(abi.encodePacked(tokenCollection, tokenId));
         bytes memory creationCode = type(BeaconProxy).creationCode;
         bytes memory initializerCall = abi.encodeWithSignature(
-            "initialize(address)",
-            address(this)
+            "initialize(address,address,uint256)",
+            address(this),
+            tokenCollection,
+            tokenId
         );
         bytes32 bytecodeHash = keccak256(
             abi.encodePacked(
@@ -49,8 +51,10 @@ contract VaultRegistry {
     {
         bytes32 salt = keccak256(abi.encodePacked(tokenCollection, tokenId));
         bytes memory initializerCall = abi.encodeWithSignature(
-            "initialize(address)",
-            address(this)
+            "initialize(address,address,uint256)",
+            address(this),
+            tokenCollection,
+            tokenId
         );
         address vaultAddress = address(
             new BeaconProxy{salt: salt}(vaultBeacon, initializerCall)
