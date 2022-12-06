@@ -9,6 +9,8 @@ import "openzeppelin-contracts/token/ERC1155/ERC1155.sol";
 import "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 
+import "delegation-registry/DelegationRegistry.sol";
+
 import "../src/Vault.sol";
 import "../src/VaultRegistry.sol";
 
@@ -36,6 +38,12 @@ contract VaultCollectionTest is Test {
         vaultRegistry = new VaultRegistry(address(vaultBeacon));
 
         tokenCollection = new TokenCollection();
+
+        address delegationRegistry = deployCode("DelegationRegistry.sol");
+        vm.etch(
+            vaultImplementation.delegationRegistry(),
+            address(delegationRegistry).code
+        );
     }
 
     function testDeployVault() public {
@@ -578,6 +586,92 @@ contract VaultCollectionTest is Test {
             signature2
         );
         assertEq(returnValue1, IERC1271.isValidSignature.selector);
+    }
+
+    function testDelegatedExecution() public {
+        address user1 = vm.addr(1);
+        address user2 = vm.addr(2);
+        uint256 tokenId = 15;
+
+        tokenCollection.mint(user1, tokenId);
+        assertEq(tokenCollection.ownerOf(tokenId), user1);
+
+        address payable vaultAddress = vaultRegistry.deployVault(
+            address(tokenCollection),
+            tokenId
+        );
+
+        vm.deal(vaultAddress, 1 ether);
+
+        Vault vault = Vault(vaultAddress);
+
+        // should fail if user2 tries to use vault
+        vm.prank(user2);
+        vm.expectRevert(bytes("Not owner"));
+        vault.execTransaction(payable(user2), 0.1 ether, "");
+
+        // grant delegation privledges to user2
+        IDelegationRegistry delegationRegistry = IDelegationRegistry(
+            vaultImplementation.delegationRegistry()
+        );
+        vm.prank(user1);
+        delegationRegistry.delegateForAll(user2, true);
+
+        // should succeed now that user2 is delegate
+        vm.prank(user2);
+        vault.execTransaction(payable(user2), 0.1 ether, "");
+
+        // revoke all delegations
+        vm.prank(user1);
+        delegationRegistry.revokeAllDelegates();
+
+        // should fail now that delegations are revoked
+        vm.prank(user2);
+        vm.expectRevert(bytes("Not owner"));
+        vault.execTransaction(payable(user2), 0.1 ether, "");
+        assertEq(user2.balance, 0.1 ether);
+    }
+
+    function testDelegatedSigning() public {
+        address user1 = vm.addr(1);
+        address user2 = vm.addr(2);
+        uint256 tokenId = 16;
+
+        tokenCollection.mint(user1, tokenId);
+        assertEq(tokenCollection.ownerOf(tokenId), user1);
+
+        address payable vaultAddress = vaultRegistry.deployVault(
+            address(tokenCollection),
+            tokenId
+        );
+
+        Vault vault = Vault(vaultAddress);
+
+        bytes32 hash = keccak256("This is a signed message");
+
+        // signature verification should fail because user2 does not have permissions
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(2, hash);
+        bytes memory signature2 = abi.encodePacked(r2, s2, v2);
+        bytes4 returnValue = vault.isValidSignature(hash, signature2);
+        assertEq(returnValue, 0);
+
+        // grant delegation privledges to user2
+        IDelegationRegistry delegationRegistry = IDelegationRegistry(
+            vaultImplementation.delegationRegistry()
+        );
+        vm.prank(user1);
+        delegationRegistry.delegateForAll(user2, true);
+
+        bytes4 returnValue2 = vault.isValidSignature(hash, signature2);
+        assertEq(returnValue2, IERC1271.isValidSignature.selector);
+
+        // revoke all delegations
+        vm.prank(user1);
+        delegationRegistry.revokeAllDelegates();
+
+        // should fail now that delegations are revoked
+        bytes4 returnValue3 = vault.isValidSignature(hash, signature2);
+        assertEq(returnValue3, 0);
     }
 }
 

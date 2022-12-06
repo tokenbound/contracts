@@ -11,6 +11,8 @@ import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
 import "openzeppelin-contracts/interfaces/IERC1271.sol";
 import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 
+import "delegation-registry/IDelegationRegistry.sol";
+
 import "./VaultRegistry.sol";
 
 error AlreadyInitialized();
@@ -19,6 +21,9 @@ contract Vault is Initializable {
     // before any transfer
     // check nft ownership
     // extensible as fuck
+
+    address public constant delegationRegistry =
+        0x00000000000076A84feF008CDAbe6409d2FE638B;
 
     address vaultRegistry;
     address tokenCollection;
@@ -44,9 +49,16 @@ contract Vault is Initializable {
         tokenId = _tokenId;
     }
 
-    modifier onlyOwner() {
+    modifier onlyOwnerOrDelegate() {
+        address owner = IERC721(tokenCollection).ownerOf(tokenId);
         require(
-            msg.sender == IERC721(tokenCollection).ownerOf(tokenId),
+            msg.sender == owner ||
+                IDelegationRegistry(delegationRegistry).checkDelegateForToken(
+                    msg.sender,
+                    owner,
+                    tokenCollection,
+                    tokenId
+                ),
             "Not owner"
         );
         _;
@@ -61,7 +73,12 @@ contract Vault is Initializable {
         _;
     }
 
-    function lock(uint256 _unlockTimestamp) public payable onlyVault onlyOwner {
+    function lock(uint256 _unlockTimestamp)
+        public
+        payable
+        onlyVault
+        onlyOwnerOrDelegate
+    {
         unlockTimestamp[
             IERC721(tokenCollection).ownerOf(tokenId)
         ] = _unlockTimestamp;
@@ -71,7 +88,7 @@ contract Vault is Initializable {
         address payable to,
         uint256 value,
         bytes calldata data
-    ) public payable onlyVault onlyOwner {
+    ) public payable onlyVault onlyOwnerOrDelegate {
         address owner = IERC721(tokenCollection).ownerOf(tokenId);
         require(unlockTimestamp[owner] < block.timestamp, "Vault is locked");
 
@@ -81,6 +98,26 @@ contract Vault is Initializable {
                 revert(add(result, 32), mload(result))
             }
         }
+    }
+
+    function isValidDelegateSignatureNow(
+        address[] memory delegates,
+        bytes32 _hash,
+        bytes memory _signature
+    ) public view onlyVault returns (bool) {
+        for (uint256 i = 0; i < delegates.length; i++) {
+            if (
+                SignatureChecker.isValidSignatureNow(
+                    delegates[i],
+                    _hash,
+                    _signature
+                )
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     function isValidSignature(bytes32 _hash, bytes memory _signature)
@@ -98,6 +135,31 @@ contract Vault is Initializable {
         );
 
         if (isValid && unlockTimestamp[owner] < block.timestamp) {
+            return IERC1271.isValidSignature.selector;
+        }
+
+        // check token-level delegations
+        address[] memory tokenDelegates = IDelegationRegistry(
+            delegationRegistry
+        ).getDelegatesForToken(owner, tokenCollection, tokenId);
+
+        if (isValidDelegateSignatureNow(tokenDelegates, _hash, _signature)) {
+            return IERC1271.isValidSignature.selector;
+        }
+
+        // check contract-level delegations
+        address[] memory contractDelegates = IDelegationRegistry(
+            delegationRegistry
+        ).getDelegatesForContract(owner, tokenCollection);
+        if (isValidDelegateSignatureNow(contractDelegates, _hash, _signature)) {
+            return IERC1271.isValidSignature.selector;
+        }
+
+        // check global delegations
+        address[] memory globalDelegates = IDelegationRegistry(
+            delegationRegistry
+        ).getDelegatesForAll(owner);
+        if (isValidDelegateSignatureNow(globalDelegates, _hash, _signature)) {
             return IERC1271.isValidSignature.selector;
         }
     }
