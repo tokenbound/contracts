@@ -24,6 +24,8 @@ contract Vault is Initializable {
     address tokenCollection;
     uint256 tokenId;
 
+    mapping(address => uint256) unlockTimestamp;
+
     function initialize(
         address _vaultRegistry,
         address _tokenCollection,
@@ -59,11 +61,20 @@ contract Vault is Initializable {
         _;
     }
 
+    function lock(uint256 _unlockTimestamp) public payable onlyVault onlyOwner {
+        unlockTimestamp[
+            IERC721(tokenCollection).ownerOf(tokenId)
+        ] = _unlockTimestamp;
+    }
+
     function execTransaction(
         address payable to,
         uint256 value,
         bytes calldata data
     ) public payable onlyVault onlyOwner {
+        address owner = IERC721(tokenCollection).ownerOf(tokenId);
+        require(unlockTimestamp[owner] < block.timestamp, "Vault is locked");
+
         (bool success, bytes memory result) = to.call{value: value}(data);
         if (!success) {
             assembly {
@@ -78,13 +89,15 @@ contract Vault is Initializable {
         onlyVault
         returns (bytes4 magicValue)
     {
+        address owner = IERC721(tokenCollection).ownerOf(tokenId);
+
         bool isValid = SignatureChecker.isValidSignatureNow(
-            IERC721(tokenCollection).ownerOf(tokenId),
+            owner,
             _hash,
             _signature
         );
 
-        if (isValid) {
+        if (isValid && unlockTimestamp[owner] < block.timestamp) {
             return IERC1271.isValidSignature.selector;
         }
     }
