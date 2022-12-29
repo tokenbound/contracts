@@ -95,13 +95,19 @@ contract Vault {
         returns (bytes4 magicValue)
     {
         address _owner = owner();
+
+        bool isAuthorized = vaultRegistry.isAuthorizedCaller(
+            address(this),
+            _owner
+        );
+
         bool isValid = SignatureChecker.isValidSignatureNow(
             _owner,
             hash,
             signature
         );
 
-        if (isValid) {
+        if (isValid && isAuthorized) {
             return IERC1271.isValidSignature.selector;
         }
     }
