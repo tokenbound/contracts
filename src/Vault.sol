@@ -33,6 +33,7 @@ contract Vault is Initializable {
     /// @dev Token ID of the ERC721 token that controls the vault
     uint256 tokenId;
 
+    /// @dev mapping from owner address to unlock timestamp for owner
     mapping(address => uint256) unlockTimestamp;
 
     /**
