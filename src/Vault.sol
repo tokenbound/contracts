@@ -6,7 +6,6 @@ import "forge-std/Script.sol";
 import "openzeppelin-contracts/token/ERC721/IERC721Receiver.sol";
 import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
 import "openzeppelin-contracts/interfaces/IERC1271.sol";
-import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 
 import "./VaultRegistry.sol";
 
@@ -94,20 +93,13 @@ contract Vault {
         view
         returns (bytes4 magicValue)
     {
-        address _owner = owner();
-
-        bool isAuthorized = vaultRegistry.isAuthorizedCaller(
+        bool isValid = vaultRegistry.isAuthorizedSigner(
             address(this),
-            _owner
-        );
-
-        bool isValid = SignatureChecker.isValidSignatureNow(
-            _owner,
             hash,
             signature
         );
 
-        if (isValid && isAuthorized) {
+        if (isValid) {
             return IERC1271.isValidSignature.selector;
         }
     }

@@ -5,6 +5,7 @@ import "forge-std/Script.sol";
 
 import "openzeppelin-contracts/proxy/Clones.sol";
 import "openzeppelin-contracts/token/ERC721/IERC721.sol";
+import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 
 import "./Vault.sol";
 
@@ -80,11 +81,30 @@ contract VaultRegistry {
 
     /// @dev Returns true if caller is authorized to call vault, false otherwise
     function isAuthorizedCaller(address vault, address caller)
-        external
+        public
         view
         returns (bool)
     {
         return vaultOwner(vault) == caller && !isLocked(vault);
+    }
+
+    /// @dev Returns true if caller is authorized to sign on behalf of vault, false otherwise
+    function isAuthorizedSigner(
+        address vault,
+        bytes32 hash,
+        bytes memory signature
+    ) external view returns (bool) {
+        address _owner = vaultOwner(vault);
+
+        bool isAuthorized = isAuthorizedCaller(vault, _owner);
+
+        bool isValid = SignatureChecker.isValidSignatureNow(
+            _owner,
+            hash,
+            signature
+        );
+
+        return isAuthorized && isValid;
     }
 
     /**
