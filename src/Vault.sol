@@ -33,8 +33,11 @@ contract Vault is Initializable {
     /// @dev Token ID of the ERC721 token that controls the vault
     uint256 tokenId;
 
-    /// @dev mapping from owner address to unlock timestamp for owner
-    mapping(address => uint256) unlockTimestamp;
+    /// @dev cached owner() value
+    address cachedOwner;
+
+    /// @dev Timestamp at which the vault unlocks
+    uint256 unlockTimestamp;
 
     /**
      * @dev Called by VaultRegistry to set Vault instance parameters.
@@ -56,11 +59,17 @@ contract Vault is Initializable {
         return IERC721(tokenCollection).ownerOf(tokenId);
     }
 
-    /// @dev Returns the hash of constant storage values. Used to ensure storage values are not changed during a transaction.
+    /// @dev Returns the hash of all storage values that should not change during a transaction.
     function storageHash() internal view returns (bytes32) {
         return
             keccak256(
-                abi.encodePacked(vaultRegistry, tokenCollection, tokenId)
+                abi.encodePacked(
+                    vaultRegistry,
+                    tokenCollection,
+                    tokenId,
+                    cachedOwner,
+                    unlockTimestamp
+                )
             );
     }
 
@@ -69,8 +78,16 @@ contract Vault is Initializable {
      * automatically unlocked when ownership token is transferred
      * @param _unlockTimestamp Timestamp at which the vault will be unlocked
      */
-    function lock(uint256 _unlockTimestamp) public payable {
-        unlockTimestamp[owner()] = _unlockTimestamp;
+    function lock(uint256 _unlockTimestamp) external {
+        address _owner = owner();
+        if (cachedOwner != _owner || _unlockTimestamp > unlockTimestamp) {
+            unlockTimestamp = _unlockTimestamp;
+            cachedOwner = _owner;
+        }
+    }
+
+    function isLocked(address _owner) public view returns (bool) {
+        return cachedOwner == _owner && unlockTimestamp > block.timestamp;
     }
 
     /**
@@ -87,7 +104,7 @@ contract Vault is Initializable {
         address _owner = owner();
 
         if (msg.sender != _owner) revert NotAuthorized();
-        if (unlockTimestamp[_owner] > block.timestamp) revert VaultLocked();
+        if (isLocked(_owner)) revert VaultLocked();
 
         (bool success, bytes memory result) = to.call{value: value}(data);
         if (!success) {
@@ -110,7 +127,7 @@ contract Vault is Initializable {
         address _owner = owner();
 
         if (msg.sender != _owner) revert NotAuthorized();
-        if (unlockTimestamp[_owner] > block.timestamp) revert VaultLocked();
+        if (isLocked(_owner)) revert VaultLocked();
 
         bytes32 cachedStorageHash = storageHash();
 
@@ -141,7 +158,7 @@ contract Vault is Initializable {
             signature
         );
 
-        if (isValid && unlockTimestamp[_owner] < block.timestamp) {
+        if (isValid && !isLocked(_owner)) {
             return IERC1271.isValidSignature.selector;
         }
     }
