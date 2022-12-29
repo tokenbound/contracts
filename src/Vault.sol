@@ -63,10 +63,13 @@ contract Vault is Initializable {
             );
     }
 
+    /**
+     * @dev Disables all actions on the Vault until a certain time. Vault is
+     * automatically unlocked when ownership token is transferred
+     * @param _unlockTimestamp Timestamp at which the vault will be unlocked
+     */
     function lock(uint256 _unlockTimestamp) public payable {
-        unlockTimestamp[
-            IERC721(tokenCollection).ownerOf(tokenId)
-        ] = _unlockTimestamp;
+        unlockTimestamp[owner()] = _unlockTimestamp;
     }
 
     /**
