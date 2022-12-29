@@ -3,11 +3,9 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 
-import "openzeppelin-contracts/proxy/Clones.sol";
 import "openzeppelin-contracts/token/ERC721/ERC721.sol";
 import "openzeppelin-contracts/token/ERC1155/ERC1155.sol";
 import "openzeppelin-contracts/token/ERC20/ERC20.sol";
-import "openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 
 import "../src/Vault.sol";
 import "../src/VaultRegistry.sol";
@@ -17,7 +15,6 @@ contract VaultCollectionTest is Test {
     DummyERC1155 public dummyERC1155;
     DummyERC20 public dummyERC20;
 
-    Vault public vaultImplementation;
     VaultRegistry public vaultRegistry;
 
     TokenCollection public tokenCollection;
@@ -29,9 +26,7 @@ contract VaultCollectionTest is Test {
         dummyERC1155 = new DummyERC1155();
         dummyERC20 = new DummyERC20();
 
-        vaultImplementation = new Vault();
-
-        vaultRegistry = new VaultRegistry(address(vaultImplementation));
+        vaultRegistry = new VaultRegistry();
 
         tokenCollection = new TokenCollection();
     }
@@ -43,16 +38,6 @@ contract VaultCollectionTest is Test {
             address(tokenCollection),
             tokenId
         );
-
-        // expect vault to be initialized on creation
-        vm.expectEmit(
-            true,
-            false,
-            false,
-            false,
-            address(predictedVaultAddress)
-        );
-        emit Initialized(1);
 
         address vaultAddress = vaultRegistry.deployVault(
             address(tokenCollection),
@@ -462,11 +447,15 @@ contract VaultCollectionTest is Test {
         // lock vault for 10 days
         uint256 unlockTimestamp = block.timestamp + 10 days;
         vm.prank(user1);
-        vault.lock(unlockTimestamp);
+        vault.executeCall(
+            payable(address(vaultRegistry)),
+            0,
+            abi.encodeWithSignature("lockVault(uint256)", unlockTimestamp)
+        );
 
         // transaction should fail if vault is locked
         vm.prank(user1);
-        vm.expectRevert(VaultLocked.selector);
+        vm.expectRevert(NotAuthorized.selector);
         vault.executeCall(payable(user1), 0.1 ether, "");
 
         // signing should fail if vault is locked
@@ -514,11 +503,15 @@ contract VaultCollectionTest is Test {
         // lock vault for 10 days
         uint256 unlockTimestamp = block.timestamp + 10 days;
         vm.prank(user1);
-        vault.lock(unlockTimestamp);
+        vault.executeCall(
+            payable(address(vaultRegistry)),
+            0,
+            abi.encodeWithSignature("lockVault(uint256)", unlockTimestamp)
+        );
 
         // transaction should fail if vault is locked
         vm.prank(user1);
-        vm.expectRevert(VaultLocked.selector);
+        vm.expectRevert(NotAuthorized.selector);
         vault.executeCall(payable(user1), 0.1 ether, "");
 
         // signing should fail if vault is locked

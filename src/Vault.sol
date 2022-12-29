@@ -3,8 +3,6 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 
-import "openzeppelin-contracts/proxy/utils/Initializable.sol";
-import "openzeppelin-contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/token/ERC721/IERC721Receiver.sol";
 import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
 import "openzeppelin-contracts/interfaces/IERC1271.sol";
@@ -13,84 +11,25 @@ import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 import "./VaultRegistry.sol";
 
 error NotAuthorized();
-error VaultLocked();
-error InvalidTransaction();
 
 /// @title Tokenbound Vault
 /// @notice A smart contract wallet owned by a single ERC721 token.
 /// @author Jayden Windle
-contract Vault is Initializable {
+contract Vault {
     // before any transfer
     // check nft ownership
     // extensible as fuck
 
     /// @dev Address of VaultRegistry
-    address vaultRegistry;
+    VaultRegistry public immutable vaultRegistry;
 
-    /// @dev Address of the ERC721 token contract
-    address tokenCollection;
-
-    /// @dev Token ID of the ERC721 token that controls the vault
-    uint256 tokenId;
-
-    /// @dev cached owner() value
-    address cachedOwner;
-
-    /// @dev Timestamp at which the vault unlocks
-    uint256 unlockTimestamp;
-
-    /**
-     * @dev Called by VaultRegistry to set Vault instance parameters.
-     * These parameters must remain constant, but cannot be protected by
-     * the constant or immutable keywords since each deployed Vault instance
-     * is a proxy.
-     */
-    function initialize(address _tokenCollection, uint256 _tokenId)
-        public
-        initializer
-    {
-        vaultRegistry = msg.sender;
-        tokenCollection = _tokenCollection;
-        tokenId = _tokenId;
+    constructor() {
+        vaultRegistry = VaultRegistry(msg.sender);
     }
 
     /// @dev Returns the owner of the token that controls this Vault
     function owner() public view returns (address) {
-        return IERC721(tokenCollection).ownerOf(tokenId);
-    }
-
-    /// @dev Returns the hash of all storage values that should not change during a transaction.
-    function storageHash() internal view returns (bytes32) {
-        return
-            keccak256(
-                abi.encodePacked(
-                    vaultRegistry,
-                    tokenCollection,
-                    tokenId,
-                    cachedOwner,
-                    unlockTimestamp
-                )
-            );
-    }
-
-    /**
-     * @dev Disables all actions on the Vault until a certain time. Vault is
-     * automatically unlocked when ownership token is transferred
-     * @param _unlockTimestamp Timestamp at which the vault will be unlocked
-     */
-    function lock(uint256 _unlockTimestamp) external {
-        address _owner = owner();
-
-        if (msg.sender != _owner) revert NotAuthorized();
-
-        if (cachedOwner != _owner || _unlockTimestamp > unlockTimestamp) {
-            unlockTimestamp = _unlockTimestamp;
-            cachedOwner = _owner;
-        }
-    }
-
-    function isLocked(address _owner) public view returns (bool) {
-        return cachedOwner == _owner && unlockTimestamp > block.timestamp;
+        return vaultRegistry.vaultOwner(address(this));
     }
 
     /**
@@ -104,12 +43,15 @@ contract Vault is Initializable {
         uint256 value,
         bytes calldata data
     ) external payable {
-        address _owner = owner();
+        bool isAuthorized = vaultRegistry.isAuthorizedCaller(
+            address(this),
+            msg.sender
+        );
 
-        if (msg.sender != _owner) revert NotAuthorized();
-        if (isLocked(_owner)) revert VaultLocked();
+        if (!isAuthorized) revert NotAuthorized();
 
         (bool success, bytes memory result) = to.call{value: value}(data);
+
         if (!success) {
             assembly {
                 revert(add(result, 32), mload(result))
@@ -127,12 +69,12 @@ contract Vault is Initializable {
         external
         payable
     {
-        address _owner = owner();
+        bool isAuthorized = vaultRegistry.isAuthorizedCaller(
+            address(this),
+            msg.sender
+        );
 
-        if (msg.sender != _owner) revert NotAuthorized();
-        if (isLocked(_owner)) revert VaultLocked();
-
-        bytes32 cachedStorageHash = storageHash();
+        if (!isAuthorized) revert NotAuthorized();
 
         (bool success, bytes memory result) = to.delegatecall(data);
         if (!success) {
@@ -140,8 +82,6 @@ contract Vault is Initializable {
                 revert(add(result, 32), mload(result))
             }
         }
-
-        if (storageHash() != cachedStorageHash) revert InvalidTransaction();
     }
 
     /**
@@ -161,7 +101,7 @@ contract Vault is Initializable {
             signature
         );
 
-        if (isValid && !isLocked(_owner)) {
+        if (isValid) {
             return IERC1271.isValidSignature.selector;
         }
     }
