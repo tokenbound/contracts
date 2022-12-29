@@ -14,6 +14,7 @@ import "./VaultRegistry.sol";
 
 error NotAuthorized();
 error VaultLocked();
+error InvalidTransaction();
 
 /// @title Tokenbound Vault
 /// @notice A smart contract wallet owned by a single ERC721 token.
@@ -102,9 +103,12 @@ contract Vault is Initializable {
         external
         payable
     {
-        if (msg.sender != owner()) revert NotAuthorized();
+        address _owner = owner();
 
-        bytes32 storageHashSnapshot = storageHash();
+        if (msg.sender != _owner) revert NotAuthorized();
+        if (unlockTimestamp[_owner] > block.timestamp) revert VaultLocked();
+
+        bytes32 cachedStorageHash = storageHash();
 
         (bool success, bytes memory result) = to.delegatecall(data);
         if (!success) {
@@ -113,10 +117,7 @@ contract Vault is Initializable {
             }
         }
 
-        require(
-            storageHashSnapshot == storageHash(),
-            "Storage modified during transaction"
-        );
+        if (storageHash() != cachedStorageHash) revert InvalidTransaction();
     }
 
     /**
