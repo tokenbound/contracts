@@ -34,7 +34,7 @@ contract VaultCollectionTest is Test {
     function testDeployVault(uint256 tokenId) public {
         assertTrue(address(vaultRegistry) != address(0));
 
-        address predictedVaultAddress = vaultRegistry.getVault(
+        address predictedVaultAddress = vaultRegistry.vaultAddress(
             address(tokenCollection),
             tokenId
         );
@@ -53,7 +53,7 @@ contract VaultCollectionTest is Test {
         vm.deal(user1, 0.2 ether);
 
         // get address that vault will be deployed to (before token is minted)
-        address payable vaultAddress = vaultRegistry.getVault(
+        address payable vaultAddress = vaultRegistry.vaultAddress(
             address(tokenCollection),
             tokenId
         );
@@ -120,7 +120,7 @@ contract VaultCollectionTest is Test {
     function testTransferERC20PreDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address payable computedVaultInstance = vaultRegistry.getVault(
+        address payable computedVaultInstance = vaultRegistry.vaultAddress(
             address(tokenCollection),
             tokenId
         );
@@ -183,7 +183,7 @@ contract VaultCollectionTest is Test {
     function testTransferERC1155PreDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address payable computedVaultInstance = vaultRegistry.getVault(
+        address payable computedVaultInstance = vaultRegistry.vaultAddress(
             address(tokenCollection),
             tokenId
         );
@@ -260,7 +260,7 @@ contract VaultCollectionTest is Test {
     function testTransferERC721PreDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address payable computedVaultInstance = vaultRegistry.getVault(
+        address payable computedVaultInstance = vaultRegistry.vaultAddress(
             address(tokenCollection),
             tokenId
         );

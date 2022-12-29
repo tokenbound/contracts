@@ -30,6 +30,43 @@ contract VaultRegistry {
         vaultImplementation = address(new Vault());
     }
 
+    /**
+     * @dev Deploys the Vault instance for an ERC721 token.
+     * @return The address of the deployed Vault
+     */
+    function deployVault(address tokenCollection, uint256 tokenId)
+        public
+        returns (address payable)
+    {
+        bytes32 salt = keccak256(abi.encodePacked(tokenCollection, tokenId));
+        address vaultClone = Clones.cloneDeterministic(
+            vaultImplementation,
+            salt
+        );
+
+        vaultData[vaultClone] = VaultData(tokenCollection, tokenId);
+
+        return payable(vaultClone);
+    }
+
+    /**
+     * @dev Gets the address of the Vault for an ERC721 token. If Vault is not deployed,
+     * the return value is the address that the Vault will eventually be deployed to
+     * @return The Vault address
+     */
+    function vaultAddress(address tokenCollection, uint256 tokenId)
+        public
+        view
+        returns (address payable)
+    {
+        bytes32 salt = keccak256(abi.encodePacked(tokenCollection, tokenId));
+        address vaultClone = Clones.predictDeterministicAddress(
+            vaultImplementation,
+            salt
+        );
+        return payable(vaultClone);
+    }
+
     /// @dev Returns the owner of the Vault, which is the owner of the underlying ERC721 token
     function vaultOwner(address vault) public view returns (address) {
         VaultData memory data = vaultData[vault];
@@ -66,42 +103,5 @@ contract VaultRegistry {
     function isLocked(address vault) public view returns (bool) {
         address _owner = vaultOwner(vault);
         return unlockTimestamp[_owner] > block.timestamp;
-    }
-
-    /**
-     * @dev Gets the address of the Vault for an ERC721 token. If Vault is not deployed,
-     * the return value is the address that the Vault will eventually be deployed to
-     * @return The Vault address
-     */
-    function getVault(address tokenCollection, uint256 tokenId)
-        public
-        view
-        returns (address payable)
-    {
-        bytes32 salt = keccak256(abi.encodePacked(tokenCollection, tokenId));
-        address vaultAddress = Clones.predictDeterministicAddress(
-            vaultImplementation,
-            salt
-        );
-        return payable(vaultAddress);
-    }
-
-    /**
-     * @dev Deploys the Vault instance for an ERC721 token.
-     * @return The address of the deployed Vault
-     */
-    function deployVault(address tokenCollection, uint256 tokenId)
-        public
-        returns (address payable)
-    {
-        bytes32 salt = keccak256(abi.encodePacked(tokenCollection, tokenId));
-        address vaultAddress = Clones.cloneDeterministic(
-            vaultImplementation,
-            salt
-        );
-
-        vaultData[vaultAddress] = VaultData(tokenCollection, tokenId);
-
-        return payable(vaultAddress);
     }
 }
