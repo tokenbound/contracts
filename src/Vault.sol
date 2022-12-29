@@ -80,6 +80,9 @@ contract Vault is Initializable {
      */
     function lock(uint256 _unlockTimestamp) external {
         address _owner = owner();
+
+        if (msg.sender != _owner) revert NotAuthorized();
+
         if (cachedOwner != _owner || _unlockTimestamp > unlockTimestamp) {
             unlockTimestamp = _unlockTimestamp;
             cachedOwner = _owner;
