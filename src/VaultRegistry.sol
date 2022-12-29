@@ -11,54 +11,50 @@ import "openzeppelin-contracts/utils/Create2.sol";
 
 import "./Vault.sol";
 
+/// @title VaultRegistry
+/// @notice Determines the address for each tokenbound Vault and performs deployment of Vault instances
+/// @author Jayden Windle
 contract VaultRegistry {
-    address public vaultBeacon;
+    address public vaultImplementation;
 
-    constructor(address _vaultBeacon) {
-        vaultBeacon = _vaultBeacon;
+    constructor(address _vaultImplementation) {
+        vaultImplementation = _vaultImplementation;
     }
 
+    /**
+     * @dev Gets the address of the Vault for an ERC721 token. If Vault is not deployed,
+     * the return value is the address that the Vault will eventually be deployed to
+     * @return The Vault address
+     */
     function getVault(address tokenCollection, uint256 tokenId)
         public
         view
         returns (address payable)
     {
         bytes32 salt = keccak256(abi.encodePacked(tokenCollection, tokenId));
-        bytes memory creationCode = type(BeaconProxy).creationCode;
-        bytes memory initializerCall = abi.encodeWithSignature(
-            "initialize(address,address,uint256)",
-            address(this),
-            tokenCollection,
-            tokenId
+        address vaultAddress = Clones.predictDeterministicAddress(
+            vaultImplementation,
+            salt
         );
-        bytes32 bytecodeHash = keccak256(
-            abi.encodePacked(
-                creationCode,
-                abi.encode(vaultBeacon, initializerCall)
-            )
-        );
-        address predictedVaultAddress = Create2.computeAddress(
-            salt,
-            bytecodeHash
-        );
-
-        return payable(predictedVaultAddress);
+        return payable(vaultAddress);
     }
 
+    /**
+     * @dev Deploys the Vault instance for an ERC721 token.
+     * @return The address of the deployed Vault
+     */
     function deployVault(address tokenCollection, uint256 tokenId)
         public
         returns (address payable)
     {
         bytes32 salt = keccak256(abi.encodePacked(tokenCollection, tokenId));
-        bytes memory initializerCall = abi.encodeWithSignature(
-            "initialize(address,address,uint256)",
-            address(this),
-            tokenCollection,
-            tokenId
+        address vaultAddress = Clones.cloneDeterministic(
+            vaultImplementation,
+            salt
         );
-        address vaultAddress = address(
-            new BeaconProxy{salt: salt}(vaultBeacon, initializerCall)
-        );
+
+        Vault vault = Vault(payable(vaultAddress));
+        vault.initialize(tokenCollection, tokenId);
 
         return payable(vaultAddress);
     }
