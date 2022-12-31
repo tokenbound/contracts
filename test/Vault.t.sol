@@ -7,6 +7,7 @@ import "openzeppelin-contracts/token/ERC721/ERC721.sol";
 import "openzeppelin-contracts/token/ERC1155/ERC1155.sol";
 import "openzeppelin-contracts/token/ERC20/ERC20.sol";
 
+import "../src/implementations/LockableVault.sol";
 import "../src/Vault.sol";
 import "../src/VaultRegistry.sol";
 
@@ -430,6 +431,11 @@ contract VaultCollectionTest is Test {
     }
 
     function testVaultLocksAndUnlocks(uint256 tokenId) public {
+        LockModule lockModule = new LockModule();
+        LockableVault lockableVault = new LockableVault(
+            address(vaultRegistry),
+            address(lockModule)
+        );
         address user1 = vm.addr(1);
 
         tokenCollection.mint(user1, tokenId);
@@ -444,14 +450,17 @@ contract VaultCollectionTest is Test {
 
         Vault vault = Vault(vaultAddress);
 
+        // use lockable implementation
+        vm.prank(user1);
+        vaultRegistry.setVaultImplementation(
+            vaultAddress,
+            address(lockableVault)
+        );
+
         // lock vault for 10 days
         uint256 unlockTimestamp = block.timestamp + 10 days;
         vm.prank(user1);
-        vault.executeCall(
-            payable(address(vaultRegistry)),
-            0,
-            abi.encodeWithSignature("lockVault(uint256)", unlockTimestamp)
-        );
+        lockModule.setUnlockTimestamp(vaultAddress, unlockTimestamp);
 
         // transaction should fail if vault is locked
         vm.prank(user1);
@@ -485,11 +494,8 @@ contract VaultCollectionTest is Test {
     }
 
     function testVaultUnlocksAfterTransfer(uint256 tokenId) public {
-        address user1 = vm.addr(1);
-        address user2 = vm.addr(2);
-
-        tokenCollection.mint(user1, tokenId);
-        assertEq(tokenCollection.ownerOf(tokenId), user1);
+        tokenCollection.mint(vm.addr(1), tokenId);
+        assertEq(tokenCollection.ownerOf(tokenId), vm.addr(1));
 
         address payable vaultAddress = vaultRegistry.deployVault(
             address(tokenCollection),
@@ -500,19 +506,28 @@ contract VaultCollectionTest is Test {
 
         Vault vault = Vault(vaultAddress);
 
-        // lock vault for 10 days
-        uint256 unlockTimestamp = block.timestamp + 10 days;
-        vm.prank(user1);
-        vault.executeCall(
-            payable(address(vaultRegistry)),
-            0,
-            abi.encodeWithSignature("lockVault(uint256)", unlockTimestamp)
+        LockModule lockModule = new LockModule();
+        LockableVault lockableVault = new LockableVault(
+            address(vaultRegistry),
+            address(lockModule)
         );
 
+        // use lockable implementation
+        vm.prank(vm.addr(1));
+        vaultRegistry.setVaultImplementation(
+            vaultAddress,
+            address(lockableVault)
+        );
+
+        // lock vault for 10 days
+        uint256 unlockTimestamp = block.timestamp + 10 days;
+        vm.prank(vm.addr(1));
+        lockModule.setUnlockTimestamp(vaultAddress, unlockTimestamp);
+
         // transaction should fail if vault is locked
-        vm.prank(user1);
+        vm.prank(vm.addr(1));
         vm.expectRevert(NotAuthorized.selector);
-        vault.executeCall(payable(user1), 0.1 ether, "");
+        vault.executeCall(payable(vm.addr(1)), 0.1 ether, "");
 
         // signing should fail if vault is locked
         bytes32 hash = keccak256("This is a signed message");
@@ -522,13 +537,13 @@ contract VaultCollectionTest is Test {
         assertEq(returnValue, 0);
 
         // transfer vault to new owner
-        vm.prank(user1);
-        tokenCollection.safeTransferFrom(user1, user2, tokenId);
+        vm.prank(vm.addr(1));
+        tokenCollection.safeTransferFrom(vm.addr(1), vm.addr(2), tokenId);
 
         // transaction succeed now that vault ownership has transferred
-        vm.prank(user2);
-        vault.executeCall(payable(user2), 1 ether, "");
-        assertEq(user2.balance, 1 ether);
+        vm.prank(vm.addr(2));
+        vault.executeCall(payable(vm.addr(2)), 1 ether, "");
+        assertEq(vm.addr(2).balance, 1 ether);
 
         // signing should now that vault vault ownership has transferred
         bytes32 hashAfterUnlock = keccak256("This is a signed message");

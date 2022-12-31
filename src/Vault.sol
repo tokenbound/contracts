@@ -1,34 +1,38 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "forge-std/Script.sol";
-
 import "openzeppelin-contracts/token/ERC721/IERC721Receiver.sol";
 import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
 import "openzeppelin-contracts/interfaces/IERC1271.sol";
+import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 
 import "./VaultRegistry.sol";
+import "./interfaces/IVault.sol";
 
 error NotAuthorized();
 
 /// @title Tokenbound Vault
 /// @notice A smart contract wallet owned by a single ERC721 token.
 /// @author Jayden Windle
-contract Vault {
+contract Vault is IVault {
     // before any transfer
     // check nft ownership
     // extensible as fuck
 
     /// @dev Address of VaultRegistry
-    VaultRegistry public immutable vaultRegistry;
+    VaultRegistry public immutable registry;
 
-    constructor() {
-        vaultRegistry = VaultRegistry(msg.sender);
+    constructor(address _registry) {
+        registry = VaultRegistry(_registry);
     }
 
     /// @dev Returns the owner of the token that controls this Vault
     function owner() public view returns (address) {
-        return vaultRegistry.vaultOwner(address(this));
+        return registry.vaultOwner(address(this));
+    }
+
+    function isAuthorized(address caller) public view virtual returns (bool) {
+        return owner() == caller;
     }
 
     /**
@@ -42,12 +46,7 @@ contract Vault {
         uint256 value,
         bytes calldata data
     ) external payable {
-        bool isAuthorized = vaultRegistry.isAuthorizedCaller(
-            address(this),
-            msg.sender
-        );
-
-        if (!isAuthorized) revert NotAuthorized();
+        if (!isAuthorized(msg.sender)) revert NotAuthorized();
 
         (bool success, bytes memory result) = to.call{value: value}(data);
 
@@ -68,12 +67,7 @@ contract Vault {
         external
         payable
     {
-        bool isAuthorized = vaultRegistry.isAuthorizedCaller(
-            address(this),
-            msg.sender
-        );
-
-        if (!isAuthorized) revert NotAuthorized();
+        if (!isAuthorized(msg.sender)) revert NotAuthorized();
 
         (bool success, bytes memory result) = to.delegatecall(data);
         if (!success) {
@@ -93,13 +87,16 @@ contract Vault {
         view
         returns (bytes4 magicValue)
     {
-        bool isValid = vaultRegistry.isAuthorizedSigner(
-            address(this),
+        address _owner = owner();
+        bool _isAuthorized = isAuthorized(_owner);
+
+        bool isValid = SignatureChecker.isValidSignatureNow(
+            _owner,
             hash,
             signature
         );
 
-        if (isValid) {
+        if (isValid && _isAuthorized) {
             return IERC1271.isValidSignature.selector;
         }
     }

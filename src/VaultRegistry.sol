@@ -4,16 +4,19 @@ pragma solidity ^0.8.13;
 import "forge-std/Script.sol";
 
 import "openzeppelin-contracts/proxy/Clones.sol";
+import "openzeppelin-contracts/utils/Create2.sol";
 import "openzeppelin-contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 
 import "./Vault.sol";
+import "./VaultProxy.sol";
+import "./interfaces/IVault.sol";
 
 /// @title VaultRegistry
 /// @notice Determines the address for each tokenbound Vault and performs deployment of Vault instances
 /// @author Jayden Windle
 contract VaultRegistry {
-    address public vaultImplementation;
+    address public defaultImplementation;
 
     struct VaultData {
         address tokenCollection;
@@ -23,12 +26,12 @@ contract VaultRegistry {
     /// @dev mapping from vault address to VaultData
     mapping(address => VaultData) public vaultData;
 
-    /// @dev mapping from vault owner address to unlock timestamp
-    mapping(address => uint256) public unlockTimestamp;
+    /// @dev mapping from vault address to owner address implementation address
+    mapping(address => mapping(address => address)) private _implementation;
 
     /// @dev deploys the canonical vault implementation
     constructor() {
-        vaultImplementation = address(new Vault());
+        defaultImplementation = address(new Vault(address(this)));
     }
 
     /**
@@ -40,14 +43,11 @@ contract VaultRegistry {
         returns (address payable)
     {
         bytes32 salt = keccak256(abi.encodePacked(tokenCollection, tokenId));
-        address vaultClone = Clones.cloneDeterministic(
-            vaultImplementation,
-            salt
-        );
+        address vaultProxy = address(new VaultProxy{salt: salt}());
 
-        vaultData[vaultClone] = VaultData(tokenCollection, tokenId);
+        vaultData[vaultProxy] = VaultData(tokenCollection, tokenId);
 
-        return payable(vaultClone);
+        return payable(vaultProxy);
     }
 
     /**
@@ -61,11 +61,14 @@ contract VaultRegistry {
         returns (address payable)
     {
         bytes32 salt = keccak256(abi.encodePacked(tokenCollection, tokenId));
-        address vaultClone = Clones.predictDeterministicAddress(
-            vaultImplementation,
-            salt
+        bytes memory creationCode = type(VaultProxy).creationCode;
+
+        address vaultProxy = Create2.computeAddress(
+            salt,
+            keccak256(creationCode)
         );
-        return payable(vaultClone);
+
+        return payable(vaultProxy);
     }
 
     /// @dev Returns the owner of the Vault, which is the owner of the underlying ERC721 token
@@ -79,49 +82,27 @@ contract VaultRegistry {
         return IERC721(data.tokenCollection).ownerOf(data.tokenId);
     }
 
-    /// @dev Returns true if caller is authorized to call vault, false otherwise
-    function isAuthorizedCaller(address vault, address caller)
-        public
-        view
-        returns (bool)
-    {
-        return vaultOwner(vault) == caller && !isLocked(vault);
-    }
+    function vaultImplementation(address vault) public view returns (address) {
+        address owner = vaultOwner(vault);
+        address currentImplementation = _implementation[vault][owner];
 
-    /// @dev Returns true if caller is authorized to sign on behalf of vault, false otherwise
-    function isAuthorizedSigner(
-        address vault,
-        bytes32 hash,
-        bytes memory signature
-    ) external view returns (bool) {
-        address _owner = vaultOwner(vault);
-
-        bool isAuthorized = isAuthorizedCaller(vault, _owner);
-
-        bool isValid = SignatureChecker.isValidSignatureNow(
-            _owner,
-            hash,
-            signature
-        );
-
-        return isAuthorized && isValid;
-    }
-
-    /**
-     * @dev Disables all actions on the Vault until a certain time. Vault is
-     * automatically unlocked when ownership token is transferred
-     * @param _unlockTimestamp Timestamp at which the vault will be unlocked
-     */
-    function lockVault(uint256 _unlockTimestamp) external {
-        address _owner = vaultOwner(msg.sender);
-        if (unlockTimestamp[_owner] < block.timestamp) {
-            unlockTimestamp[_owner] = _unlockTimestamp;
+        if (currentImplementation != address(0)) {
+            return currentImplementation;
         }
+
+        return defaultImplementation;
     }
 
-    /// @dev returns true if vault is locked, false otherwise
-    function isLocked(address vault) public view returns (bool) {
-        address _owner = vaultOwner(vault);
-        return unlockTimestamp[_owner] > block.timestamp;
+    function setVaultImplementation(
+        address payable vault,
+        address newImplementation
+    ) external {
+        address owner = vaultOwner(vault);
+        Vault _vault = Vault(vault);
+        bool isAuthorized = _vault.isAuthorized(msg.sender);
+
+        if (owner != msg.sender || !isAuthorized) revert NotAuthorized();
+
+        _implementation[vault][owner] = newImplementation;
     }
 }
