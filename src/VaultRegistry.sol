@@ -10,36 +10,61 @@ import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 
 import "./Vault.sol";
 import "./VaultProxy.sol";
+import "./MinimalReceiver.sol";
+import "./LockedVault.sol";
 import "./interfaces/IVault.sol";
 
-/// @title VaultRegistry
-/// @notice Determines the address for each tokenbound Vault and performs deployment of Vault instances
-/// @author Jayden Windle
-contract VaultRegistry {
-    address public defaultImplementation;
+error VaultLocked();
 
+/**
+ * @title VaultRegistry
+ * @dev Determines the address for each tokenbound Vault and performs deployment of VaultProxy instances
+ */
+contract VaultRegistry {
     struct VaultData {
         address tokenCollection;
         uint256 tokenId;
     }
 
-    /// @dev mapping from vault address to VaultData
-    mapping(address => VaultData) public vaultData;
+    /**
+     * @dev Address of the default vault implementation
+     */
+    address public defaultImplementation;
 
-    /// @dev mapping from vault address to owner address implementation address
+    /**
+     * @dev Address of the fallback implementation (used when vault is locked)
+     */
+    address public fallbackImplementation;
+
+    /**
+     * @dev Mapping from vault address to owner address implementation address
+     */
     mapping(address => mapping(address => address)) private _implementation;
 
-    /// @dev deploys the canonical vault implementation
+    /**
+     * @dev Mapping from vault address to VaultData
+     */
+    mapping(address => VaultData) public vaultData;
+
+    /**
+     * @dev Mapping from vault address unlock timestamp
+     */
+    mapping(address => uint256) public unlockTimestamp;
+
+    /**
+     * @dev Deploys the default Vault implementation
+     */
     constructor() {
+        fallbackImplementation = address(new LockedVault());
         defaultImplementation = address(new Vault(address(this)));
     }
 
     /**
-     * @dev Deploys the Vault instance for an ERC721 token.
+     * @dev Deploys VaultProxy instance for an ERC721 token
      * @return The address of the deployed Vault
      */
     function deployVault(address tokenCollection, uint256 tokenId)
-        public
+        external
         returns (address payable)
     {
         bytes32 salt = keccak256(abi.encodePacked(tokenCollection, tokenId));
@@ -51,12 +76,43 @@ contract VaultRegistry {
     }
 
     /**
-     * @dev Gets the address of the Vault for an ERC721 token. If Vault is not deployed,
-     * the return value is the address that the Vault will eventually be deployed to
-     * @return The Vault address
+     * @dev Sets the VaultProxy implementation address, allowing for vault owners to use a custom implementation if
+     * they choose to. When the token controlling the vault is transferred, the implementation address will reset.
+     */
+    function setVaultImplementation(address vault, address newImplementation)
+        external
+    {
+        address owner = vaultOwner(vault);
+        if (owner != msg.sender) revert NotAuthorized();
+        if (vaultLocked(vault)) revert VaultLocked();
+
+        _implementation[vault][owner] = newImplementation;
+    }
+
+    /**
+     * @dev Locks a vault, preventing transactions from being executed until a certain time
+     * @param vault the vault to lock
+     * @param _unlockTimestamp timestamp when the vault will become unlocked
+     */
+    function lockVault(address payable vault, uint256 _unlockTimestamp)
+        external
+    {
+        address owner = vaultOwner(vault);
+        if (owner != msg.sender) revert NotAuthorized();
+        if (vaultLocked(vault)) revert VaultLocked();
+
+        unlockTimestamp[vault] = _unlockTimestamp;
+    }
+
+    /**
+     * @dev Gets the address of the VaultProxy for an ERC721 token. If VaultProxy is
+     * not yet deployed, returns the address it will be deployed to
+     * @param tokenCollection the address of the ERC721 token contract
+     * @param tokenId the tokenId of the ERC721 token that controls the vault
+     * @return The VaultProxy address
      */
     function vaultAddress(address tokenCollection, uint256 tokenId)
-        public
+        external
         view
         returns (address payable)
     {
@@ -71,7 +127,34 @@ contract VaultRegistry {
         return payable(vaultProxy);
     }
 
-    /// @dev Returns the owner of the Vault, which is the owner of the underlying ERC721 token
+    /**
+     * @dev Returns the implementation address for a vault
+     * @param vault the address of the vault to query implementation for
+     * @return the address of the vault implementation
+     */
+    function vaultImplementation(address vault)
+        external
+        view
+        returns (address)
+    {
+        if (vaultLocked(vault)) return fallbackImplementation;
+
+        address owner = vaultOwner(vault);
+
+        address currentImplementation = _implementation[vault][owner];
+
+        if (currentImplementation != address(0)) {
+            return currentImplementation;
+        }
+
+        return defaultImplementation;
+    }
+
+    /**
+     * @dev Returns the owner of the Vault, which is the owner of the underlying ERC721 token
+     * @param vault the address of the vault to query ownership for
+     * @return the address of the vault owner
+     */
     function vaultOwner(address vault) public view returns (address) {
         VaultData memory data = vaultData[vault];
 
@@ -82,27 +165,12 @@ contract VaultRegistry {
         return IERC721(data.tokenCollection).ownerOf(data.tokenId);
     }
 
-    function vaultImplementation(address vault) public view returns (address) {
-        address owner = vaultOwner(vault);
-        address currentImplementation = _implementation[vault][owner];
-
-        if (currentImplementation != address(0)) {
-            return currentImplementation;
-        }
-
-        return defaultImplementation;
-    }
-
-    function setVaultImplementation(
-        address payable vault,
-        address newImplementation
-    ) external {
-        address owner = vaultOwner(vault);
-        Vault _vault = Vault(vault);
-        bool isAuthorized = _vault.isAuthorized(msg.sender);
-
-        if (owner != msg.sender || !isAuthorized) revert NotAuthorized();
-
-        _implementation[vault][owner] = newImplementation;
+    /**
+     * @dev Returns the lock status for a vault
+     * @param vault the address of the vault to query lock status for
+     * @return true if vault is locked, false otherwise
+     */
+    function vaultLocked(address vault) public view returns (bool) {
+        return unlockTimestamp[vault] > block.timestamp;
     }
 }

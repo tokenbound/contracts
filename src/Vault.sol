@@ -8,31 +8,22 @@ import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 
 import "./VaultRegistry.sol";
 import "./interfaces/IVault.sol";
+import "./MinimalReceiver.sol";
 
 error NotAuthorized();
 
-/// @title Tokenbound Vault
-/// @notice A smart contract wallet owned by a single ERC721 token.
-/// @author Jayden Windle
-contract Vault is IVault {
-    // before any transfer
-    // check nft ownership
-    // extensible as fuck
-
-    /// @dev Address of VaultRegistry
+/**
+ * @title Default Vault Implementation
+ * @dev A smart contract wallet owned by a single ERC721 token
+ */
+contract Vault is MinimalReceiver {
+    /**
+     * @dev Address of VaultRegistry
+     */
     VaultRegistry public immutable registry;
 
     constructor(address _registry) {
         registry = VaultRegistry(_registry);
-    }
-
-    /// @dev Returns the owner of the token that controls this Vault
-    function owner() public view returns (address) {
-        return registry.vaultOwner(address(this));
-    }
-
-    function isAuthorized(address caller) public view virtual returns (bool) {
-        return owner() == caller;
     }
 
     /**
@@ -101,43 +92,19 @@ contract Vault is IVault {
         }
     }
 
-    // receiver functions
-
-    /// @dev allows contract to receive Ether
-    receive() external payable {}
-
-    /// @dev ensures that fallback calls are a noop
-    fallback() external payable {}
-
-    /// @dev Allows all ERC721 tokens to be received
-    function onERC721Received(
-        address,
-        address,
-        uint256,
-        bytes calldata
-    ) external pure returns (bytes4) {
-        return IERC721Receiver.onERC721Received.selector;
+    /**
+     * @dev Returns the owner of the token that controls this Vault (for Ownable compatibility)
+     */
+    function owner() public view returns (address) {
+        return registry.vaultOwner(address(this));
     }
 
-    /// @dev Allows all ERC1155 tokens to be received
-    function onERC1155Received(
-        address,
-        address,
-        uint256,
-        uint256,
-        bytes calldata /* data */
-    ) external pure returns (bytes4) {
-        return IERC1155Receiver.onERC1155Received.selector;
-    }
-
-    /// @dev Allows all ERC1155 token batches to be received
-    function onERC1155BatchReceived(
-        address,
-        address,
-        uint256[] calldata,
-        uint256[] calldata,
-        bytes calldata
-    ) external pure returns (bytes4) {
-        return IERC1155Receiver.onERC1155BatchReceived.selector;
+    /**
+     * @dev Returns true if caller is authorized to execute actions on this vault
+     * @param caller the address to query authorization for
+     * @return bool true if caller is authorized, false otherwise
+     */
+    function isAuthorized(address caller) public view virtual returns (bool) {
+        return owner() == caller;
     }
 }
