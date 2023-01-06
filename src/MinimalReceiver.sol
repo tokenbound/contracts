@@ -8,12 +8,12 @@ contract MinimalReceiver {
     /**
      * @dev allows contract to receive Ether
      */
-    receive() external payable {}
+    receive() external payable virtual {}
 
     /**
      * @dev ensures that payable fallback calls are a noop
      */
-    fallback() external payable {}
+    fallback() external payable virtual {}
 
     /**
      * @dev Allows all ERC721 tokens to be received
@@ -23,7 +23,7 @@ contract MinimalReceiver {
         address,
         uint256,
         bytes calldata
-    ) external pure returns (bytes4) {
+    ) external pure virtual returns (bytes4) {
         return IERC721Receiver.onERC721Received.selector;
     }
 
@@ -36,7 +36,7 @@ contract MinimalReceiver {
         uint256,
         uint256,
         bytes calldata /* data */
-    ) external pure returns (bytes4) {
+    ) external pure virtual returns (bytes4) {
         return IERC1155Receiver.onERC1155Received.selector;
     }
 
@@ -49,7 +49,7 @@ contract MinimalReceiver {
         uint256[] calldata,
         uint256[] calldata,
         bytes calldata
-    ) external pure returns (bytes4) {
+    ) external pure virtual returns (bytes4) {
         return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+import "openzeppelin-contracts/proxy/Proxy.sol";
 import "openzeppelin-contracts/token/ERC721/IERC721Receiver.sol";
 import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
 import "openzeppelin-contracts/interfaces/IERC1271.sol";
@@ -8,23 +9,22 @@ import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 
 import "./VaultRegistry.sol";
 import "./interfaces/IVault.sol";
+import "./interfaces/IExecutionModule.sol";
 import "./MinimalReceiver.sol";
-
-error NotAuthorized();
+import "./lib/MinimalProxyStore.sol";
+import "./lib/Delegate.sol";
 
 /**
  * @title Default Vault Implementation
  * @dev A smart contract wallet owned by a single ERC721 token
  */
 contract Vault is MinimalReceiver {
+    error NotAuthorized();
+
     /**
      * @dev Address of VaultRegistry
      */
-    VaultRegistry public immutable registry;
-
-    constructor(address _registry) {
-        registry = VaultRegistry(_registry);
-    }
+    VaultRegistry public immutable registry = VaultRegistry(msg.sender);
 
     /**
      * @dev Executes a transaction from the Vault. Must be called by Vault owner
@@ -35,9 +35,14 @@ contract Vault is MinimalReceiver {
     function executeCall(
         address payable to,
         uint256 value,
-        bytes calldata data
+        bytes calldata data,
+        bool useExecutionModule
     ) external payable {
-        if (!isAuthorized(msg.sender)) revert NotAuthorized();
+        uint256 startGas = gasleft();
+        if (!_isAuthorized(msg.sender, useExecutionModule))
+            revert NotAuthorized();
+        uint256 endGas = gasleft();
+        console.log("transaction overhead", startGas - endGas);
 
         (bool success, bytes memory result) = to.call{value: value}(data);
 
@@ -54,11 +59,13 @@ contract Vault is MinimalReceiver {
      * @param to      Contract address of the delegated call
      * @param data    Encoded payload of the delegated call
      */
-    function executeDelegateCall(address payable to, bytes calldata data)
-        external
-        payable
-    {
-        if (!isAuthorized(msg.sender)) revert NotAuthorized();
+    function executeDelegateCall(
+        address payable to,
+        bytes calldata data,
+        bool useExecutionModule
+    ) external payable {
+        if (!_isAuthorized(msg.sender, useExecutionModule))
+            revert NotAuthorized();
 
         (bool success, bytes memory result) = to.delegatecall(data);
         if (!success) {
@@ -78,25 +85,82 @@ contract Vault is MinimalReceiver {
         view
         returns (bytes4 magicValue)
     {
-        address _owner = owner();
-        bool _isAuthorized = isAuthorized(_owner);
+        // If vault is locked, return invalid for all signatures
+        bool isLocked = registry.vaultLocked(address(this));
+        if (isLocked) {
+            return "";
+        }
 
+        // If vault has an executionModule, return its verification result
+        address _owner = owner();
+        address executionModule = registry.vaultExecutionModule(
+            address(this),
+            _owner
+        );
+        if (executionModule != address(0)) {
+            return
+                IExecutionModule(executionModule).isValidSignature(
+                    hash,
+                    signature
+                );
+        }
+
+        // Default - check if signature is valid for vault owner
         bool isValid = SignatureChecker.isValidSignatureNow(
             _owner,
             hash,
             signature
         );
-
-        if (isValid && _isAuthorized) {
+        if (isValid) {
             return IERC1271.isValidSignature.selector;
         }
+
+        return "";
     }
 
     /**
      * @dev Returns the owner of the token that controls this Vault (for Ownable compatibility)
      */
     function owner() public view returns (address) {
-        return registry.vaultOwner(address(this));
+        bytes memory context = MinimalProxyStore.getContext(address(this), 64);
+
+        if (context.length == 0) return address(0);
+
+        (address tokenCollection, uint256 tokenId) = abi.decode(
+            context,
+            (address, uint256)
+        );
+
+        return IERC721(tokenCollection).ownerOf(tokenId);
+    }
+
+    function _isAuthorized(address caller, bool useExecutionModule)
+        internal
+        view
+        returns (bool)
+    {
+        // If vault is locked, return false for all auth queries
+        bool isLocked = registry.vaultLocked(address(this));
+        if (isLocked) {
+            return false;
+        }
+
+        address _owner = owner();
+
+        // If useExecutionModule is set, lookup executionModule
+        address executionModule;
+        if (useExecutionModule) {
+            executionModule = registry.vaultExecutionModule(
+                address(this),
+                _owner
+            );
+        }
+
+        // if useExecutionModule is false or executionModule is not set, return default auth
+        if (executionModule == address(0)) return caller == _owner;
+
+        // If executionModule is set, query it for auth
+        return IExecutionModule(executionModule).isAuthorized(caller);
     }
 
     /**
@@ -105,6 +169,17 @@ contract Vault is MinimalReceiver {
      * @return bool true if caller is authorized, false otherwise
      */
     function isAuthorized(address caller) public view virtual returns (bool) {
-        return owner() == caller;
+        return _isAuthorized(caller, true);
+    }
+
+    fallback() external payable virtual override {
+        address _owner = owner();
+        address executionModule = registry.vaultExecutionModule(
+            address(this),
+            _owner
+        );
+        bool isLocked = registry.vaultLocked(address(this));
+
+        if (!isLocked) Delegate.delegate(executionModule);
     }
 }

@@ -9,42 +9,28 @@ import "openzeppelin-contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 
 import "./Vault.sol";
-import "./VaultProxy.sol";
 import "./MinimalReceiver.sol";
-import "./LockedVault.sol";
 import "./interfaces/IVault.sol";
 
-error VaultLocked();
+import "./lib/MinimalProxyStore.sol";
 
 /**
  * @title VaultRegistry
  * @dev Determines the address for each tokenbound Vault and performs deployment of VaultProxy instances
  */
 contract VaultRegistry {
-    struct VaultData {
-        address tokenCollection;
-        uint256 tokenId;
-    }
+    error NotAuthorized();
+    error VaultLocked();
 
     /**
      * @dev Address of the default vault implementation
      */
-    address public defaultImplementation;
+    address public vaultImplementation;
 
     /**
-     * @dev Address of the fallback implementation (used when vault is locked)
+     * @dev Mapping from vault address to owner address to execution module address
      */
-    address public fallbackImplementation;
-
-    /**
-     * @dev Mapping from vault address to owner address implementation address
-     */
-    mapping(address => mapping(address => address)) private _implementation;
-
-    /**
-     * @dev Mapping from vault address to VaultData
-     */
-    mapping(address => VaultData) public vaultData;
+    mapping(address => mapping(address => address)) private executionModule;
 
     /**
      * @dev Mapping from vault address unlock timestamp
@@ -55,8 +41,7 @@ contract VaultRegistry {
      * @dev Deploys the default Vault implementation
      */
     constructor() {
-        fallbackImplementation = address(new LockedVault());
-        defaultImplementation = address(new Vault(address(this)));
+        vaultImplementation = address(new Vault());
     }
 
     /**
@@ -67,10 +52,13 @@ contract VaultRegistry {
         external
         returns (address payable)
     {
-        bytes32 salt = keccak256(abi.encodePacked(tokenCollection, tokenId));
-        address vaultProxy = address(new VaultProxy{salt: salt}());
-
-        vaultData[vaultProxy] = VaultData(tokenCollection, tokenId);
+        bytes memory encodedTokenData = abi.encode(tokenCollection, tokenId);
+        bytes32 salt = keccak256(encodedTokenData);
+        address vaultProxy = MinimalProxyStore.cloneDeterministic(
+            vaultImplementation,
+            encodedTokenData,
+            salt
+        );
 
         return payable(vaultProxy);
     }
@@ -79,14 +67,17 @@ contract VaultRegistry {
      * @dev Sets the VaultProxy implementation address, allowing for vault owners to use a custom implementation if
      * they choose to. When the token controlling the vault is transferred, the implementation address will reset.
      */
-    function setVaultImplementation(address vault, address newImplementation)
+    function setExecutionModule(address vault, address _executionModule)
         external
     {
-        address owner = vaultOwner(vault);
-        if (owner != msg.sender) revert NotAuthorized();
         if (vaultLocked(vault)) revert VaultLocked();
 
-        _implementation[vault][owner] = newImplementation;
+        if (vault.code.length == 0) revert NotAuthorized();
+
+        address owner = vaultOwner(vault);
+        if (owner != msg.sender) revert NotAuthorized();
+
+        executionModule[vault][owner] = _executionModule;
     }
 
     /**
@@ -97,9 +88,12 @@ contract VaultRegistry {
     function lockVault(address payable vault, uint256 _unlockTimestamp)
         external
     {
+        if (vaultLocked(vault)) revert VaultLocked();
+
+        if (vault.code.length == 0) revert NotAuthorized();
+
         address owner = vaultOwner(vault);
         if (owner != msg.sender) revert NotAuthorized();
-        if (vaultLocked(vault)) revert VaultLocked();
 
         unlockTimestamp[vault] = _unlockTimestamp;
     }
@@ -116,12 +110,13 @@ contract VaultRegistry {
         view
         returns (address payable)
     {
-        bytes32 salt = keccak256(abi.encodePacked(tokenCollection, tokenId));
-        bytes memory creationCode = type(VaultProxy).creationCode;
+        bytes memory encodedTokenData = abi.encode(tokenCollection, tokenId);
+        bytes32 salt = keccak256(encodedTokenData);
 
-        address vaultProxy = Create2.computeAddress(
-            salt,
-            keccak256(creationCode)
+        address vaultProxy = MinimalProxyStore.predictDeterministicAddress(
+            vaultImplementation,
+            encodedTokenData,
+            salt
         );
 
         return payable(vaultProxy);
@@ -132,22 +127,12 @@ contract VaultRegistry {
      * @param vault the address of the vault to query implementation for
      * @return the address of the vault implementation
      */
-    function vaultImplementation(address vault)
+    function vaultExecutionModule(address vault, address owner)
         external
         view
         returns (address)
     {
-        if (vaultLocked(vault)) return fallbackImplementation;
-
-        address owner = vaultOwner(vault);
-
-        address currentImplementation = _implementation[vault][owner];
-
-        if (currentImplementation != address(0)) {
-            return currentImplementation;
-        }
-
-        return defaultImplementation;
+        return executionModule[vault][owner];
     }
 
     /**
@@ -156,13 +141,16 @@ contract VaultRegistry {
      * @return the address of the vault owner
      */
     function vaultOwner(address vault) public view returns (address) {
-        VaultData memory data = vaultData[vault];
+        bytes memory context = MinimalProxyStore.getContext(vault, 64);
 
-        if (data.tokenCollection == address(0)) {
-            return address(0);
-        }
+        if (context.length == 0) return address(0);
 
-        return IERC721(data.tokenCollection).ownerOf(data.tokenId);
+        (address tokenCollection, uint256 tokenId) = abi.decode(
+            context,
+            (address, uint256)
+        );
+
+        return IERC721(tokenCollection).ownerOf(tokenId);
     }
 
     /**

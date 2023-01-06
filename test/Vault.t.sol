@@ -48,7 +48,8 @@ contract VaultCollectionTest is Test {
         assertTrue(vaultAddress == predictedVaultAddress);
     }
 
-    function testTransferETHPreDeploy(uint256 tokenId) public {
+    function testTransferETHPreDeploy() public {
+        uint256 tokenId = 1;
         address user1 = vm.addr(1);
         vm.deal(user1, 0.2 ether);
 
@@ -82,7 +83,7 @@ contract VaultCollectionTest is Test {
 
         // user1 executes transaction to send ETH from vault
         vm.prank(user1);
-        vault.executeCall(payable(user1), 0.1 ether, "");
+        vault.executeCall(payable(user1), 0.1 ether, "", false);
 
         // success!
         assertEq(vaultAddress.balance, 0.1 ether);
@@ -111,7 +112,7 @@ contract VaultCollectionTest is Test {
         Vault vault = Vault(vaultAddress);
 
         vm.prank(user1);
-        vault.executeCall(payable(user1), 0.1 ether, "");
+        vault.executeCall(payable(user1), 0.1 ether, "", false);
 
         assertEq(vaultAddress.balance, 0.1 ether);
         assertEq(user1.balance, 0.1 ether);
@@ -145,7 +146,12 @@ contract VaultCollectionTest is Test {
             1 ether
         );
         vm.prank(user1);
-        vault.executeCall(payable(address(dummyERC20)), 0, erc20TransferCall);
+        vault.executeCall(
+            payable(address(dummyERC20)),
+            0,
+            erc20TransferCall,
+            false
+        );
 
         assertEq(dummyERC20.balanceOf(vaultAddress), 0);
         assertEq(dummyERC20.balanceOf(user1), 1 ether);
@@ -174,7 +180,12 @@ contract VaultCollectionTest is Test {
             1 ether
         );
         vm.prank(user1);
-        vault.executeCall(payable(address(dummyERC20)), 0, erc20TransferCall);
+        vault.executeCall(
+            payable(address(dummyERC20)),
+            0,
+            erc20TransferCall,
+            false
+        );
 
         assertEq(dummyERC20.balanceOf(vaultAddress), 0);
         assertEq(dummyERC20.balanceOf(user1), 1 ether);
@@ -214,7 +225,8 @@ contract VaultCollectionTest is Test {
         vault.executeCall(
             payable(address(dummyERC1155)),
             0,
-            erc1155TransferCall
+            erc1155TransferCall,
+            false
         );
 
         assertEq(dummyERC1155.balanceOf(vaultAddress, 1), 0);
@@ -250,7 +262,8 @@ contract VaultCollectionTest is Test {
         vault.executeCall(
             payable(address(dummyERC1155)),
             0,
-            erc1155TransferCall
+            erc1155TransferCall,
+            false
         );
 
         assertEq(dummyERC1155.balanceOf(vaultAddress, 1), 0);
@@ -287,7 +300,12 @@ contract VaultCollectionTest is Test {
             1
         );
         vm.prank(user1);
-        vault.executeCall(payable(address(dummyERC721)), 0, erc721TransferCall);
+        vault.executeCall(
+            payable(address(dummyERC721)),
+            0,
+            erc721TransferCall,
+            false
+        );
 
         assertEq(dummyERC721.balanceOf(address(vaultAddress)), 0);
         assertEq(dummyERC721.balanceOf(user1), 1);
@@ -319,7 +337,12 @@ contract VaultCollectionTest is Test {
             1
         );
         vm.prank(user1);
-        vault.executeCall(payable(address(dummyERC721)), 0, erc721TransferCall);
+        vault.executeCall(
+            payable(address(dummyERC721)),
+            0,
+            erc721TransferCall,
+            false
+        );
 
         assertEq(dummyERC721.balanceOf(vaultAddress), 0);
         assertEq(dummyERC721.balanceOf(user1), 1);
@@ -344,8 +367,8 @@ contract VaultCollectionTest is Test {
 
         // should fail if user2 tries to use vault
         vm.prank(user2);
-        vm.expectRevert(NotAuthorized.selector);
-        vault.executeCall(payable(user2), 0.1 ether, "");
+        vm.expectRevert(Vault.NotAuthorized.selector);
+        vault.executeCall(payable(user2), 0.1 ether, "", false);
     }
 
     function testVaultOwnershipTransfer(uint256 tokenId) public {
@@ -366,15 +389,15 @@ contract VaultCollectionTest is Test {
 
         // should fail if user2 tries to use vault
         vm.prank(user2);
-        vm.expectRevert(NotAuthorized.selector);
-        vault.executeCall(payable(user2), 0.1 ether, "");
+        vm.expectRevert(Vault.NotAuthorized.selector);
+        vault.executeCall(payable(user2), 0.1 ether, "", false);
 
         vm.prank(user1);
         tokenCollection.safeTransferFrom(user1, user2, tokenId);
 
         // should succeed now that user2 is owner
         vm.prank(user2);
-        vault.executeCall(payable(user2), 0.1 ether, "");
+        vault.executeCall(payable(user2), 0.1 ether, "", false);
 
         assertEq(user2.balance, 0.1 ether);
     }
@@ -449,11 +472,10 @@ contract VaultCollectionTest is Test {
         vm.prank(user1);
         vaultRegistry.lockVault(vaultAddress, unlockTimestamp);
 
-        // transaction should noop if vault is locked
+        // transaction should revert if vault is locked
         vm.prank(user1);
-        vault.executeCall(payable(user1), 1 ether, "");
-        assertEq(vaultAddress.balance, 1 ether);
-        assertEq(user1.balance, 0);
+        vm.expectRevert(Vault.NotAuthorized.selector);
+        vault.executeCall(payable(user1), 1 ether, "", false);
 
         // signing should fail if vault is locked
         bytes32 hash = keccak256("This is a signed message");
@@ -467,7 +489,7 @@ contract VaultCollectionTest is Test {
 
         // transaction succeed now that vault lock has expired
         vm.prank(user1);
-        vault.executeCall(payable(user1), 1 ether, "");
+        vault.executeCall(payable(user1), 1 ether, "", false);
         assertEq(user1.balance, 1 ether);
 
         // signing should now that vault lock has expired

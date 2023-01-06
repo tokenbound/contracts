@@ -1,13 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "../VaultRegistry.sol";
-
 interface IVault {
-    function owner() external view returns (address);
-
-    function isAuthorized(address caller) external view returns (bool);
-
     function executeCall(
         address payable to,
         uint256 value,
@@ -17,11 +11,6 @@ interface IVault {
     function executeDelegateCall(address payable to, bytes calldata data)
         external
         payable;
-
-    function isValidSignature(bytes32 hash, bytes memory signature)
-        external
-        view
-        returns (bytes4 magicValue);
 
     receive() external payable;
 
@@ -49,4 +38,13 @@ interface IVault {
         uint256[] calldata,
         bytes calldata
     ) external returns (bytes4);
+
+    function owner() external view returns (address);
+
+    function isAuthorized(address caller) external view returns (bool);
+
+    function isValidSignature(bytes32 hash, bytes memory signature)
+        external
+        view
+        returns (bytes4 magicValue);
 }
