@@ -10,7 +10,6 @@ import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 import "./VaultRegistry.sol";
 import "./interfaces/IVault.sol";
 import "./interfaces/IExecutionModule.sol";
-import "./MinimalReceiver.sol";
 import "./lib/MinimalProxyStore.sol";
 import "./lib/Delegate.sol";
 
@@ -18,7 +17,7 @@ import "./lib/Delegate.sol";
  * @title Default Vault Implementation
  * @dev A smart contract wallet owned by a single ERC721 token
  */
-contract Vault is MinimalReceiver {
+contract Vault is IVault {
     error NotAuthorized();
 
     /**
@@ -172,7 +171,10 @@ contract Vault is MinimalReceiver {
         return _isAuthorized(caller, true);
     }
 
-    fallback() external payable virtual override {
+    /**
+     * @dev If vault is unlocked and an execution module is defined, delegate execution to the execution module
+     */
+    fallback() external payable virtual {
         address _owner = owner();
         address executionModule = registry.vaultExecutionModule(
             address(this),
@@ -181,5 +183,48 @@ contract Vault is MinimalReceiver {
         bool isLocked = registry.vaultLocked(address(this));
 
         if (!isLocked) Delegate.delegate(executionModule);
+    }
+
+    /**
+     * @dev Allows all Ether transfers
+     */
+    receive() external payable virtual {}
+
+    /**
+     * @dev Allows all ERC721 tokens to be received
+     */
+    function onERC721Received(
+        address,
+        address,
+        uint256,
+        bytes calldata
+    ) external pure virtual returns (bytes4) {
+        return IERC721Receiver.onERC721Received.selector;
+    }
+
+    /**
+     * @dev Allows all ERC1155 tokens to be received
+     */
+    function onERC1155Received(
+        address,
+        address,
+        uint256,
+        uint256,
+        bytes calldata /* data */
+    ) external pure virtual returns (bytes4) {
+        return IERC1155Receiver.onERC1155Received.selector;
+    }
+
+    /**
+     * @dev Allows all ERC1155 token batches to be received
+     */
+    function onERC1155BatchReceived(
+        address,
+        address,
+        uint256[] calldata,
+        uint256[] calldata,
+        bytes calldata
+    ) external pure virtual returns (bytes4) {
+        return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
 }

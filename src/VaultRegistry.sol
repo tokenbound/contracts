@@ -9,9 +9,7 @@ import "openzeppelin-contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 
 import "./Vault.sol";
-import "./MinimalReceiver.sol";
 import "./interfaces/IVault.sol";
-
 import "./lib/MinimalProxyStore.sol";
 
 /**
