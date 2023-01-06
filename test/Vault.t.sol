@@ -11,6 +11,7 @@ import "../src/VaultRegistry.sol";
 import "./mocks/MockERC721.sol";
 import "./mocks/MockERC1155.sol";
 import "./mocks/MockERC20.sol";
+import "./mocks/MockExecutionModule.sol";
 
 contract VaultTest is Test {
     MockERC721 public dummyERC721;
@@ -484,5 +485,35 @@ contract VaultTest is Test {
             signature2
         );
         assertEq(returnValue1, IERC1271.isValidSignature.selector);
+    }
+
+    function testCustomExecutionModule(uint256 tokenId) public {
+        address user1 = vm.addr(1);
+
+        tokenCollection.mint(user1, tokenId);
+        assertEq(tokenCollection.ownerOf(tokenId), user1);
+
+        address payable vaultAddress = vaultRegistry.deployVault(
+            address(tokenCollection),
+            tokenId
+        );
+
+        vm.deal(vaultAddress, 1 ether);
+
+        Vault vault = Vault(vaultAddress);
+
+        MockExecutionModule mockExecutionModule = new MockExecutionModule();
+
+        vm.prank(user1);
+        vaultRegistry.setExecutionModule(
+            vaultAddress,
+            address(mockExecutionModule)
+        );
+
+        // execution module overrides authorization check
+        assertTrue(vault.isAuthorized(vm.addr(2)));
+
+        // execution module handles fallback calls
+        assertEq(MockExecutionModule(vaultAddress).customFunction(), 12345);
     }
 }
