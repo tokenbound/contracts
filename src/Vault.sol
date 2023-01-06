@@ -25,7 +25,8 @@ contract Vault is IVault {
     VaultRegistry public immutable registry = VaultRegistry(msg.sender);
 
     /**
-     * @dev Executes a transaction from the Vault. Must be called by Vault owner
+     * @dev Executes a transaction from the Vault. Must be called by an authorized sender.
+     *
      * @param to      Destination address of the transaction
      * @param value   Ether value of the transaction
      * @param data    Encoded payload of the transaction
@@ -36,11 +37,8 @@ contract Vault is IVault {
         bytes calldata data,
         bool useExecutionModule
     ) external payable {
-        uint256 startGas = gasleft();
         if (!_isAuthorized(msg.sender, useExecutionModule))
             revert NotAuthorized();
-        uint256 endGas = gasleft();
-        console.log("transaction overhead", startGas - endGas);
 
         (bool success, bytes memory result) = to.call{value: value}(data);
 
@@ -53,7 +51,8 @@ contract Vault is IVault {
 
     /**
      * @dev Executes a delegated transaction from the Vault, allowing vault
-     * functionality to be expanded without upgradability. Must be called by the Vault owner
+     * functionality to be expanded without setting an execution module. Must be called by an authorized sender.
+     *
      * @param to      Contract address of the delegated call
      * @param data    Encoded payload of the delegated call
      */
@@ -75,6 +74,7 @@ contract Vault is IVault {
 
     /**
      * @dev Implements EIP-1271 signature validation
+     *
      * @param hash      Hash of the signed data
      * @param signature Signature to validate
      */
@@ -118,6 +118,8 @@ contract Vault is IVault {
 
     /**
      * @dev Returns the owner of the token that controls this Vault (for Ownable compatibility)
+     *
+     * @return the address of the Vault owner
      */
     function owner() public view returns (address) {
         bytes memory context = MinimalProxyStore.getContext(address(this), 64);
@@ -132,6 +134,13 @@ contract Vault is IVault {
         return IERC721(tokenCollection).ownerOf(tokenId);
     }
 
+    /**
+     * @dev Returns true if caller is authorized to execute actions on this vault. Only uses execution module for auth
+     * if useExecutionModule is set to true.
+     *
+     * @param caller the address to query authorization for
+     * @return bool true if caller is authorized, false otherwise
+     */
     function _isAuthorized(address caller, bool useExecutionModule)
         internal
         view
@@ -157,12 +166,13 @@ contract Vault is IVault {
         // if useExecutionModule is false or executionModule is not set, return default auth
         if (executionModule == address(0)) return caller == _owner;
 
-        // If executionModule is set, query it for auth
+        // If executionModule is set, query it for auth status
         return IExecutionModule(executionModule).isAuthorized(caller);
     }
 
     /**
      * @dev Returns true if caller is authorized to execute actions on this vault
+     *
      * @param caller the address to query authorization for
      * @return bool true if caller is authorized, false otherwise
      */

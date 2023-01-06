@@ -43,7 +43,10 @@ contract VaultRegistry {
     }
 
     /**
-     * @dev Deploys VaultProxy instance for an ERC721 token
+     * @dev Deploys the Vault instance for an ERC721 token. Will revert if Vault has already been deployed
+     *
+     * @param tokenCollection the contract address of the ERC721 token which will control the deployed Vault
+     * @param tokenId the token ID of the ERC721 token which will control the deployed Vault
      * @return The address of the deployed Vault
      */
     function deployVault(address tokenCollection, uint256 tokenId)
@@ -62,8 +65,11 @@ contract VaultRegistry {
     }
 
     /**
-     * @dev Sets the VaultProxy implementation address, allowing for vault owners to use a custom implementation if
-     * they choose to. When the token controlling the vault is transferred, the implementation address will reset.
+     * @dev Sets the execution module address for a Vault, allowing for vault owners to use a custom implementation if
+     * they choose to. When the token controlling the vault is transferred, the implementation address will reset
+     *
+     * @param vault the address of the vault whose execution module is being set
+     * @param _executionModule the address of the execution module
      */
     function setExecutionModule(address vault, address _executionModule)
         external
@@ -80,6 +86,7 @@ contract VaultRegistry {
 
     /**
      * @dev Locks a vault, preventing transactions from being executed until a certain time
+     *
      * @param vault the vault to lock
      * @param _unlockTimestamp timestamp when the vault will become unlocked
      */
@@ -99,6 +106,7 @@ contract VaultRegistry {
     /**
      * @dev Gets the address of the VaultProxy for an ERC721 token. If VaultProxy is
      * not yet deployed, returns the address it will be deployed to
+     *
      * @param tokenCollection the address of the ERC721 token contract
      * @param tokenId the tokenId of the ERC721 token that controls the vault
      * @return The VaultProxy address
@@ -122,6 +130,7 @@ contract VaultRegistry {
 
     /**
      * @dev Returns the implementation address for a vault
+     *
      * @param vault the address of the vault to query implementation for
      * @return the address of the vault implementation
      */
@@ -135,6 +144,7 @@ contract VaultRegistry {
 
     /**
      * @dev Returns the owner of the Vault, which is the owner of the underlying ERC721 token
+     *
      * @param vault the address of the vault to query ownership for
      * @return the address of the vault owner
      */
@@ -153,6 +163,7 @@ contract VaultRegistry {
 
     /**
      * @dev Returns the lock status for a vault
+     *
      * @param vault the address of the vault to query lock status for
      * @return true if vault is locked, false otherwise
      */
