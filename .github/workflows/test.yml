@@ -30,5 +30,6 @@ jobs:
 
       - name: Run Forge tests
         run: |
-          forge test -vvv --code-size-limit 24576
+          forge test -vvv --no-match-test testCannotOverflowContext
+          forge test -vvv --match-test testCannotOverflowContext --code-size-limit 24576
         id: test
