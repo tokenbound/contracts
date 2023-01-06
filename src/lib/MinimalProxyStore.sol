@@ -4,6 +4,10 @@ pragma solidity ^0.8.13;
 import "openzeppelin-contracts/utils/Create2.sol";
 import "sstore2/utils/Bytecode.sol";
 
+/**
+ * @title A library for deploying EIP-1167 minimal proxy contracts with embedded constant data
+ * @author Jayden Windle (jaydenwindle)
+ */
 library MinimalProxyStore {
     error CreateError();
     error ContextOverflow();

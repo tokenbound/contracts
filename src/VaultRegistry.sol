@@ -9,12 +9,12 @@ import "openzeppelin-contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 
 import "./Vault.sol";
-import "./interfaces/IVault.sol";
 import "./lib/MinimalProxyStore.sol";
 
 /**
- * @title VaultRegistry
- * @dev Determines the address for each tokenbound Vault and performs deployment of VaultProxy instances
+ * @title A registry for tokenbound Vaults
+ * @dev Determines the address for each tokenbound Vault and performs deployment of vault instances
+ * @author Jayden Windle (jaydenwindle)
  */
 contract VaultRegistry {
     error NotAuthorized();

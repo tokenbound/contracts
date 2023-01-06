@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "openzeppelin-contracts/proxy/Proxy.sol";
 import "openzeppelin-contracts/token/ERC721/IERC721Receiver.sol";
 import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
 import "openzeppelin-contracts/interfaces/IERC1271.sol";
@@ -14,8 +13,8 @@ import "./lib/MinimalProxyStore.sol";
 import "./lib/Delegate.sol";
 
 /**
- * @title Default Vault Implementation
- * @dev A smart contract wallet owned by a single ERC721 token
+ * @title A smart contract wallet owned by a single ERC721 token
+ * @author Jayden Windle (jaydenwindle)
  */
 contract Vault is IVault {
     error NotAuthorized();

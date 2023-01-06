@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "openzeppelin-contracts/utils/Create2.sol";
-
 library Delegate {
     /**
      * @dev Delegates the current call to `implementation`.
