@@ -6,8 +6,14 @@ import "forge-std/Test.sol";
 import "../src/lib/MinimalProxyStore.sol";
 
 contract TestContract {
+    error Failed();
+
     function test() public pure returns (uint256) {
         return 123;
+    }
+
+    function fails() public pure {
+        revert Failed();
     }
 }
 
@@ -22,6 +28,19 @@ contract MinimalProxyStoreTest is Test {
 
         assertTrue(clone != address(0));
         assertEq(TestContract(clone).test(), 123);
+    }
+
+    function testReverts() public {
+        TestContract testContract = new TestContract();
+
+        address clone = MinimalProxyStore.clone(
+            address(testContract),
+            abi.encode("hello")
+        );
+
+        assertTrue(clone != address(0));
+        vm.expectRevert(TestContract.Failed.selector);
+        TestContract(clone).fails();
     }
 
     function testGetContext() public {
