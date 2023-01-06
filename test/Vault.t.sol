@@ -3,49 +3,32 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 
-import "openzeppelin-contracts/token/ERC721/ERC721.sol";
-import "openzeppelin-contracts/token/ERC1155/ERC1155.sol";
 import "openzeppelin-contracts/token/ERC20/ERC20.sol";
 
 import "../src/Vault.sol";
 import "../src/VaultRegistry.sol";
 
-contract VaultCollectionTest is Test {
-    DummyERC721 public dummyERC721;
-    DummyERC1155 public dummyERC1155;
-    DummyERC20 public dummyERC20;
+import "./mocks/MockERC721.sol";
+import "./mocks/MockERC1155.sol";
+import "./mocks/MockERC20.sol";
+
+contract VaultTest is Test {
+    MockERC721 public dummyERC721;
+    MockERC1155 public dummyERC1155;
+    MockERC20 public dummyERC20;
 
     VaultRegistry public vaultRegistry;
 
-    TokenCollection public tokenCollection;
-
-    event Initialized(uint8 version);
+    MockERC721 public tokenCollection;
 
     function setUp() public {
-        dummyERC721 = new DummyERC721();
-        dummyERC1155 = new DummyERC1155();
-        dummyERC20 = new DummyERC20();
+        dummyERC721 = new MockERC721();
+        dummyERC1155 = new MockERC1155();
+        dummyERC20 = new MockERC20();
 
         vaultRegistry = new VaultRegistry();
 
-        tokenCollection = new TokenCollection();
-    }
-
-    function testDeployVault(uint256 tokenId) public {
-        assertTrue(address(vaultRegistry) != address(0));
-
-        address predictedVaultAddress = vaultRegistry.vaultAddress(
-            address(tokenCollection),
-            tokenId
-        );
-
-        address vaultAddress = vaultRegistry.deployVault(
-            address(tokenCollection),
-            tokenId
-        );
-
-        assertTrue(vaultAddress != address(0));
-        assertTrue(vaultAddress == predictedVaultAddress);
+        tokenCollection = new MockERC721();
     }
 
     function testTransferETHPreDeploy() public {
@@ -501,41 +484,5 @@ contract VaultCollectionTest is Test {
             signature2
         );
         assertEq(returnValue1, IERC1271.isValidSignature.selector);
-    }
-}
-
-contract TokenCollection is ERC721 {
-    constructor() ERC721("TokenCollection", "TC") {}
-
-    function mint(address to, uint256 tokenId) external {
-        _safeMint(to, tokenId);
-    }
-}
-
-contract DummyERC721 is ERC721 {
-    constructor() ERC721("DummyERC721", "T721") {}
-
-    function mint(address to, uint256 tokenId) external {
-        _safeMint(to, tokenId);
-    }
-}
-
-contract DummyERC1155 is ERC1155 {
-    constructor() ERC1155("http://DummyERC1155.com") {}
-
-    function mint(
-        address to,
-        uint256 tokenId,
-        uint256 amount
-    ) external {
-        _mint(to, tokenId, amount, "");
-    }
-}
-
-contract DummyERC20 is ERC20 {
-    constructor() ERC20("DummyERC20", "T20") {}
-
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
     }
 }
