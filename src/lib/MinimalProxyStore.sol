@@ -24,17 +24,17 @@ library MinimalProxyStore {
         pure
         returns (bytes memory)
     {
-        if (context.length > 210) revert ContextOverflow();
-
         return
             abi.encodePacked(
-                hex"3d60", // RETURNDATASIZE, PUSH1
-                uint8(0x2d + context.length + 1), // size of minimal proxy (45 bytes) + size of context
-                hex"80600a3d3981f3363d3d373d3d3d363d73",
-                implementation,
-                hex"5af43d82803e903d91602b57fd5bf3",
+                hex"3d61", // RETURNDATASIZE, PUSH2
+                uint16(0x2d + context.length + 1), // size of minimal proxy (45 bytes) + size of context + stop byte
+                hex"8060", // DUP1, PUSH1
+                uint8(0x0a + 1), // default offset (0x0a) + 1 byte because we increased size from uint8 to uint16
+                hex"3d3981f3363d3d373d3d3d363d73", // standard EIP1167 implementation
+                implementation, // implementation address
+                hex"5af43d82803e903d91602b57fd5bf3", // standard EIP1167 implementation
                 hex"00", // stop byte (prevents context from executing as code)
-                context // appended context
+                context // appended context data
             );
     }
 
@@ -50,8 +50,6 @@ library MinimalProxyStore {
         view
         returns (bytes memory)
     {
-        if (contextSize > 210) revert ContextOverflow();
-
         uint256 instanceCodeLength = instance.code.length;
 
         return
