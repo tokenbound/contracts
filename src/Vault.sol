@@ -3,79 +3,54 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 
-import "openzeppelin-contracts/proxy/Clones.sol";
-import "openzeppelin-contracts/proxy/utils/Initializable.sol";
-import "openzeppelin-contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/token/ERC721/IERC721Receiver.sol";
 import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
 import "openzeppelin-contracts/interfaces/IERC1271.sol";
-import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 
 import "./VaultRegistry.sol";
 
-error AlreadyInitialized();
+error NotAuthorized();
 
-contract Vault is Initializable {
+/// @title Tokenbound Vault
+/// @notice A smart contract wallet owned by a single ERC721 token.
+/// @author Jayden Windle
+contract Vault {
     // before any transfer
     // check nft ownership
     // extensible as fuck
 
-    address vaultRegistry;
-    address tokenCollection;
-    uint256 tokenId;
+    /// @dev Address of VaultRegistry
+    VaultRegistry public immutable vaultRegistry;
 
-    mapping(address => uint256) unlockTimestamp;
-
-    function initialize(
-        address _vaultRegistry,
-        address _tokenCollection,
-        uint256 _tokenId
-    ) public initializer {
-        vaultRegistry = _vaultRegistry;
-        require(
-            address(this) ==
-                VaultRegistry(vaultRegistry).getVault(
-                    _tokenCollection,
-                    _tokenId
-                ),
-            "Not vault"
-        );
-        tokenCollection = _tokenCollection;
-        tokenId = _tokenId;
+    constructor() {
+        vaultRegistry = VaultRegistry(msg.sender);
     }
 
-    modifier onlyOwner() {
-        require(
-            msg.sender == IERC721(tokenCollection).ownerOf(tokenId),
-            "Not owner"
-        );
-        _;
+    /// @dev Returns the owner of the token that controls this Vault
+    function owner() public view returns (address) {
+        return vaultRegistry.vaultOwner(address(this));
     }
 
-    modifier onlyVault() {
-        require(
-            address(this) ==
-                VaultRegistry(vaultRegistry).getVault(tokenCollection, tokenId),
-            "Not vault"
-        );
-        _;
-    }
-
-    function lock(uint256 _unlockTimestamp) public payable onlyVault onlyOwner {
-        unlockTimestamp[
-            IERC721(tokenCollection).ownerOf(tokenId)
-        ] = _unlockTimestamp;
-    }
-
-    function execTransaction(
+    /**
+     * @dev Executes a transaction from the Vault. Must be called by Vault owner
+     * @param to      Destination address of the transaction
+     * @param value   Ether value of the transaction
+     * @param data    Encoded payload of the transaction
+     */
+    function executeCall(
         address payable to,
         uint256 value,
         bytes calldata data
-    ) public payable onlyVault onlyOwner {
-        address owner = IERC721(tokenCollection).ownerOf(tokenId);
-        require(unlockTimestamp[owner] < block.timestamp, "Vault is locked");
+    ) external payable {
+        bool isAuthorized = vaultRegistry.isAuthorizedCaller(
+            address(this),
+            msg.sender
+        );
+
+        if (!isAuthorized) revert NotAuthorized();
 
         (bool success, bytes memory result) = to.call{value: value}(data);
+
         if (!success) {
             assembly {
                 revert(add(result, 32), mload(result))
@@ -83,31 +58,61 @@ contract Vault is Initializable {
         }
     }
 
-    function isValidSignature(bytes32 _hash, bytes memory _signature)
-        public
-        view
-        onlyVault
-        returns (bytes4 magicValue)
+    /**
+     * @dev Executes a delegated transaction from the Vault, allowing vault
+     * functionality to be expanded without upgradability. Must be called by the Vault owner
+     * @param to      Contract address of the delegated call
+     * @param data    Encoded payload of the delegated call
+     */
+    function executeDelegateCall(address payable to, bytes calldata data)
+        external
+        payable
     {
-        address owner = IERC721(tokenCollection).ownerOf(tokenId);
-
-        bool isValid = SignatureChecker.isValidSignatureNow(
-            owner,
-            _hash,
-            _signature
+        bool isAuthorized = vaultRegistry.isAuthorizedCaller(
+            address(this),
+            msg.sender
         );
 
-        if (isValid && unlockTimestamp[owner] < block.timestamp) {
+        if (!isAuthorized) revert NotAuthorized();
+
+        (bool success, bytes memory result) = to.delegatecall(data);
+        if (!success) {
+            assembly {
+                revert(add(result, 32), mload(result))
+            }
+        }
+    }
+
+    /**
+     * @dev Implements EIP-1271 signature validation
+     * @param hash      Hash of the signed data
+     * @param signature Signature to validate
+     */
+    function isValidSignature(bytes32 hash, bytes memory signature)
+        external
+        view
+        returns (bytes4 magicValue)
+    {
+        bool isValid = vaultRegistry.isAuthorizedSigner(
+            address(this),
+            hash,
+            signature
+        );
+
+        if (isValid) {
             return IERC1271.isValidSignature.selector;
         }
     }
 
     // receiver functions
 
+    /// @dev allows contract to receive Ether
     receive() external payable {}
 
+    /// @dev ensures that fallback calls are a noop
     fallback() external payable {}
 
+    /// @dev Allows all ERC721 tokens to be received
     function onERC721Received(
         address,
         address,
@@ -117,6 +122,7 @@ contract Vault is Initializable {
         return IERC721Receiver.onERC721Received.selector;
     }
 
+    /// @dev Allows all ERC1155 tokens to be received
     function onERC1155Received(
         address,
         address,
@@ -127,6 +133,7 @@ contract Vault is Initializable {
         return IERC1155Receiver.onERC1155Received.selector;
     }
 
+    /// @dev Allows all ERC1155 token batches to be received
     function onERC1155BatchReceived(
         address,
         address,
