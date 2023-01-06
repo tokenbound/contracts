@@ -4,124 +4,170 @@ pragma solidity ^0.8.13;
 import "forge-std/Script.sol";
 
 import "openzeppelin-contracts/proxy/Clones.sol";
+import "openzeppelin-contracts/utils/Create2.sol";
 import "openzeppelin-contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 
 import "./Vault.sol";
+import "./lib/MinimalProxyStore.sol";
 
-/// @title VaultRegistry
-/// @notice Determines the address for each tokenbound Vault and performs deployment of Vault instances
-/// @author Jayden Windle
+/**
+ * @title A registry for tokenbound Vaults
+ * @dev Determines the address for each tokenbound Vault and performs deployment of vault instances
+ * @author Jayden Windle (jaydenwindle)
+ */
 contract VaultRegistry {
+    error NotAuthorized();
+    error VaultLocked();
+
+    /**
+     * @dev Address of the default vault implementation
+     */
     address public vaultImplementation;
 
-    struct VaultData {
-        address tokenCollection;
-        uint256 tokenId;
-    }
+    /**
+     * @dev Mapping from vault address to owner address to execution module address
+     */
+    mapping(address => mapping(address => address)) private executionModule;
 
-    /// @dev mapping from vault address to VaultData
-    mapping(address => VaultData) public vaultData;
-
-    /// @dev mapping from vault owner address to unlock timestamp
+    /**
+     * @dev Mapping from vault address unlock timestamp
+     */
     mapping(address => uint256) public unlockTimestamp;
 
-    /// @dev deploys the canonical vault implementation
+    /**
+     * @dev Deploys the default Vault implementation
+     */
     constructor() {
         vaultImplementation = address(new Vault());
     }
 
     /**
-     * @dev Deploys the Vault instance for an ERC721 token.
+     * @dev Deploys the Vault instance for an ERC721 token. Will revert if Vault has already been deployed
+     *
+     * @param tokenCollection the contract address of the ERC721 token which will control the deployed Vault
+     * @param tokenId the token ID of the ERC721 token which will control the deployed Vault
      * @return The address of the deployed Vault
      */
     function deployVault(address tokenCollection, uint256 tokenId)
-        public
+        external
         returns (address payable)
     {
-        bytes32 salt = keccak256(abi.encodePacked(tokenCollection, tokenId));
-        address vaultClone = Clones.cloneDeterministic(
+        bytes memory encodedTokenData = abi.encode(tokenCollection, tokenId);
+        bytes32 salt = keccak256(encodedTokenData);
+        address vaultProxy = MinimalProxyStore.cloneDeterministic(
             vaultImplementation,
+            encodedTokenData,
             salt
         );
 
-        vaultData[vaultClone] = VaultData(tokenCollection, tokenId);
-
-        return payable(vaultClone);
+        return payable(vaultProxy);
     }
 
     /**
-     * @dev Gets the address of the Vault for an ERC721 token. If Vault is not deployed,
-     * the return value is the address that the Vault will eventually be deployed to
-     * @return The Vault address
+     * @dev Sets the execution module address for a Vault, allowing for vault owners to use a custom implementation if
+     * they choose to. When the token controlling the vault is transferred, the implementation address will reset
+     *
+     * @param vault the address of the vault whose execution module is being set
+     * @param _executionModule the address of the execution module
+     */
+    function setExecutionModule(address vault, address _executionModule)
+        external
+    {
+        if (vaultLocked(vault)) revert VaultLocked();
+
+        if (vault.code.length == 0) revert NotAuthorized();
+
+        address owner = vaultOwner(vault);
+        if (owner != msg.sender) revert NotAuthorized();
+
+        executionModule[vault][owner] = _executionModule;
+    }
+
+    /**
+     * @dev Locks a vault, preventing transactions from being executed until a certain time
+     *
+     * @param vault the vault to lock
+     * @param _unlockTimestamp timestamp when the vault will become unlocked
+     */
+    function lockVault(address payable vault, uint256 _unlockTimestamp)
+        external
+    {
+        if (vaultLocked(vault)) revert VaultLocked();
+
+        if (vault.code.length == 0) revert NotAuthorized();
+
+        address owner = vaultOwner(vault);
+        if (owner != msg.sender) revert NotAuthorized();
+
+        unlockTimestamp[vault] = _unlockTimestamp;
+    }
+
+    /**
+     * @dev Gets the address of the VaultProxy for an ERC721 token. If VaultProxy is
+     * not yet deployed, returns the address it will be deployed to
+     *
+     * @param tokenCollection the address of the ERC721 token contract
+     * @param tokenId the tokenId of the ERC721 token that controls the vault
+     * @return The VaultProxy address
      */
     function vaultAddress(address tokenCollection, uint256 tokenId)
-        public
+        external
         view
         returns (address payable)
     {
-        bytes32 salt = keccak256(abi.encodePacked(tokenCollection, tokenId));
-        address vaultClone = Clones.predictDeterministicAddress(
+        bytes memory encodedTokenData = abi.encode(tokenCollection, tokenId);
+        bytes32 salt = keccak256(encodedTokenData);
+
+        address vaultProxy = MinimalProxyStore.predictDeterministicAddress(
             vaultImplementation,
+            encodedTokenData,
             salt
         );
-        return payable(vaultClone);
-    }
 
-    /// @dev Returns the owner of the Vault, which is the owner of the underlying ERC721 token
-    function vaultOwner(address vault) public view returns (address) {
-        VaultData memory data = vaultData[vault];
-
-        if (data.tokenCollection == address(0)) {
-            return address(0);
-        }
-
-        return IERC721(data.tokenCollection).ownerOf(data.tokenId);
-    }
-
-    /// @dev Returns true if caller is authorized to call vault, false otherwise
-    function isAuthorizedCaller(address vault, address caller)
-        public
-        view
-        returns (bool)
-    {
-        return vaultOwner(vault) == caller && !isLocked(vault);
-    }
-
-    /// @dev Returns true if caller is authorized to sign on behalf of vault, false otherwise
-    function isAuthorizedSigner(
-        address vault,
-        bytes32 hash,
-        bytes memory signature
-    ) external view returns (bool) {
-        address _owner = vaultOwner(vault);
-
-        bool isAuthorized = isAuthorizedCaller(vault, _owner);
-
-        bool isValid = SignatureChecker.isValidSignatureNow(
-            _owner,
-            hash,
-            signature
-        );
-
-        return isAuthorized && isValid;
+        return payable(vaultProxy);
     }
 
     /**
-     * @dev Disables all actions on the Vault until a certain time. Vault is
-     * automatically unlocked when ownership token is transferred
-     * @param _unlockTimestamp Timestamp at which the vault will be unlocked
+     * @dev Returns the implementation address for a vault
+     *
+     * @param vault the address of the vault to query implementation for
+     * @return the address of the vault implementation
      */
-    function lockVault(uint256 _unlockTimestamp) external {
-        address _owner = vaultOwner(msg.sender);
-        if (unlockTimestamp[_owner] < block.timestamp) {
-            unlockTimestamp[_owner] = _unlockTimestamp;
-        }
+    function vaultExecutionModule(address vault, address owner)
+        external
+        view
+        returns (address)
+    {
+        return executionModule[vault][owner];
     }
 
-    /// @dev returns true if vault is locked, false otherwise
-    function isLocked(address vault) public view returns (bool) {
-        address _owner = vaultOwner(vault);
-        return unlockTimestamp[_owner] > block.timestamp;
+    /**
+     * @dev Returns the owner of the Vault, which is the owner of the underlying ERC721 token
+     *
+     * @param vault the address of the vault to query ownership for
+     * @return the address of the vault owner
+     */
+    function vaultOwner(address vault) public view returns (address) {
+        bytes memory context = MinimalProxyStore.getContext(vault, 64);
+
+        if (context.length == 0) return address(0);
+
+        (address tokenCollection, uint256 tokenId) = abi.decode(
+            context,
+            (address, uint256)
+        );
+
+        return IERC721(tokenCollection).ownerOf(tokenId);
+    }
+
+    /**
+     * @dev Returns the lock status for a vault
+     *
+     * @param vault the address of the vault to query lock status for
+     * @return true if vault is locked, false otherwise
+     */
+    function vaultLocked(address vault) public view returns (bool) {
+        return unlockTimestamp[vault] > block.timestamp;
     }
 }
