@@ -149,7 +149,7 @@ contract VaultRegistry {
      * @return the address of the vault owner
      */
     function vaultOwner(address vault) public view returns (address) {
-        bytes memory context = MinimalProxyStore.getContext(vault, 64);
+        bytes memory context = MinimalProxyStore.getContext(vault);
 
         if (context.length == 0) return address(0);
 

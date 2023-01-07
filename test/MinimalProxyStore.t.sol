@@ -53,10 +53,7 @@ contract MinimalProxyStoreTest is Test {
         assertTrue(clone != address(0));
         assertEq(TestContract(clone).test(), 123);
 
-        bytes memory recoveredContext = MinimalProxyStore.getContext(
-            clone,
-            context.length
-        );
+        bytes memory recoveredContext = MinimalProxyStore.getContext(clone);
 
         assertEq(recoveredContext, context);
     }
@@ -75,10 +72,7 @@ contract MinimalProxyStoreTest is Test {
         assertTrue(clone != address(0));
         assertEq(TestContract(clone).test(), 123);
 
-        bytes memory recoveredContext = MinimalProxyStore.getContext(
-            clone,
-            context.length
-        );
+        bytes memory recoveredContext = MinimalProxyStore.getContext(clone);
 
         assertEq(recoveredContext, context);
 

@@ -122,7 +122,7 @@ contract Vault is IVault {
      * @return the address of the Vault owner
      */
     function owner() public view returns (address) {
-        bytes memory context = MinimalProxyStore.getContext(address(this), 64);
+        bytes memory context = MinimalProxyStore.getContext(address(this));
 
         if (context.length == 0) return address(0);
 

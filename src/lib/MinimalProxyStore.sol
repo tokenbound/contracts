@@ -42,22 +42,12 @@ library MinimalProxyStore {
      * @dev Fetches the context data stored in a deployed proxy
      *
      * @param instance the proxy to query context data for
-     * @param contextSize the length in bytes of the data that should be queried
      * @return the queried context data
      */
-    function getContext(address instance, uint256 contextSize)
-        internal
-        view
-        returns (bytes memory)
-    {
+    function getContext(address instance) internal view returns (bytes memory) {
         uint256 instanceCodeLength = instance.code.length;
 
-        return
-            Bytecode.codeAt(
-                instance,
-                instanceCodeLength - contextSize,
-                instanceCodeLength
-            );
+        return Bytecode.codeAt(instance, 46, instanceCodeLength);
     }
 
     /**
