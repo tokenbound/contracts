@@ -11,7 +11,7 @@ import "../src/VaultRegistry.sol";
 import "./mocks/MockERC721.sol";
 import "./mocks/MockERC1155.sol";
 import "./mocks/MockERC20.sol";
-import "./mocks/MockExecutionModule.sol";
+import "./mocks/MockExecutor.sol";
 
 contract VaultTest is Test {
     MockERC721 public dummyERC721;
@@ -67,7 +67,7 @@ contract VaultTest is Test {
 
         // user1 executes transaction to send ETH from vault
         vm.prank(user1);
-        vault.executeCall(payable(user1), 0.1 ether, "", false);
+        vault.executeCall(payable(user1), 0.1 ether, "");
 
         // success!
         assertEq(vaultAddress.balance, 0.1 ether);
@@ -96,7 +96,7 @@ contract VaultTest is Test {
         Vault vault = Vault(vaultAddress);
 
         vm.prank(user1);
-        vault.executeCall(payable(user1), 0.1 ether, "", false);
+        vault.executeCall(payable(user1), 0.1 ether, "");
 
         assertEq(vaultAddress.balance, 0.1 ether);
         assertEq(user1.balance, 0.1 ether);
@@ -130,12 +130,7 @@ contract VaultTest is Test {
             1 ether
         );
         vm.prank(user1);
-        vault.executeCall(
-            payable(address(dummyERC20)),
-            0,
-            erc20TransferCall,
-            false
-        );
+        vault.executeCall(payable(address(dummyERC20)), 0, erc20TransferCall);
 
         assertEq(dummyERC20.balanceOf(vaultAddress), 0);
         assertEq(dummyERC20.balanceOf(user1), 1 ether);
@@ -164,12 +159,7 @@ contract VaultTest is Test {
             1 ether
         );
         vm.prank(user1);
-        vault.executeCall(
-            payable(address(dummyERC20)),
-            0,
-            erc20TransferCall,
-            false
-        );
+        vault.executeCall(payable(address(dummyERC20)), 0, erc20TransferCall);
 
         assertEq(dummyERC20.balanceOf(vaultAddress), 0);
         assertEq(dummyERC20.balanceOf(user1), 1 ether);
@@ -209,8 +199,7 @@ contract VaultTest is Test {
         vault.executeCall(
             payable(address(dummyERC1155)),
             0,
-            erc1155TransferCall,
-            false
+            erc1155TransferCall
         );
 
         assertEq(dummyERC1155.balanceOf(vaultAddress, 1), 0);
@@ -246,8 +235,7 @@ contract VaultTest is Test {
         vault.executeCall(
             payable(address(dummyERC1155)),
             0,
-            erc1155TransferCall,
-            false
+            erc1155TransferCall
         );
 
         assertEq(dummyERC1155.balanceOf(vaultAddress, 1), 0);
@@ -284,12 +272,7 @@ contract VaultTest is Test {
             1
         );
         vm.prank(user1);
-        vault.executeCall(
-            payable(address(dummyERC721)),
-            0,
-            erc721TransferCall,
-            false
-        );
+        vault.executeCall(payable(address(dummyERC721)), 0, erc721TransferCall);
 
         assertEq(dummyERC721.balanceOf(address(vaultAddress)), 0);
         assertEq(dummyERC721.balanceOf(user1), 1);
@@ -321,12 +304,7 @@ contract VaultTest is Test {
             1
         );
         vm.prank(user1);
-        vault.executeCall(
-            payable(address(dummyERC721)),
-            0,
-            erc721TransferCall,
-            false
-        );
+        vault.executeCall(payable(address(dummyERC721)), 0, erc721TransferCall);
 
         assertEq(dummyERC721.balanceOf(vaultAddress), 0);
         assertEq(dummyERC721.balanceOf(user1), 1);
@@ -352,7 +330,7 @@ contract VaultTest is Test {
         // should fail if user2 tries to use vault
         vm.prank(user2);
         vm.expectRevert(Vault.NotAuthorized.selector);
-        vault.executeCall(payable(user2), 0.1 ether, "", false);
+        vault.executeCall(payable(user2), 0.1 ether, "");
     }
 
     function testVaultOwnershipTransfer(uint256 tokenId) public {
@@ -374,14 +352,14 @@ contract VaultTest is Test {
         // should fail if user2 tries to use vault
         vm.prank(user2);
         vm.expectRevert(Vault.NotAuthorized.selector);
-        vault.executeCall(payable(user2), 0.1 ether, "", false);
+        vault.executeCall(payable(user2), 0.1 ether, "");
 
         vm.prank(user1);
         tokenCollection.safeTransferFrom(user1, user2, tokenId);
 
         // should succeed now that user2 is owner
         vm.prank(user2);
-        vault.executeCall(payable(user2), 0.1 ether, "", false);
+        vault.executeCall(payable(user2), 0.1 ether, "");
 
         assertEq(user2.balance, 0.1 ether);
     }
@@ -454,12 +432,12 @@ contract VaultTest is Test {
         // lock vault for 10 days
         uint256 unlockTimestamp = block.timestamp + 10 days;
         vm.prank(user1);
-        vaultRegistry.lockVault(vaultAddress, unlockTimestamp);
+        vault.lock(unlockTimestamp);
 
         // transaction should revert if vault is locked
         vm.prank(user1);
-        vm.expectRevert(Vault.NotAuthorized.selector);
-        vault.executeCall(payable(user1), 1 ether, "", false);
+        vm.expectRevert(Vault.VaultLocked.selector);
+        vault.executeCall(payable(user1), 1 ether, "");
 
         // signing should fail if vault is locked
         bytes32 hash = keccak256("This is a signed message");
@@ -473,7 +451,7 @@ contract VaultTest is Test {
 
         // transaction succeed now that vault lock has expired
         vm.prank(user1);
-        vault.executeCall(payable(user1), 1 ether, "", false);
+        vault.executeCall(payable(user1), 1 ether, "");
         assertEq(user1.balance, 1 ether);
 
         // signing should now that vault lock has expired
@@ -502,18 +480,12 @@ contract VaultTest is Test {
 
         Vault vault = Vault(vaultAddress);
 
-        MockExecutionModule mockExecutionModule = new MockExecutionModule();
+        MockExecutor mockExecutor = new MockExecutor();
 
         vm.prank(user1);
-        vaultRegistry.setExecutionModule(
-            vaultAddress,
-            address(mockExecutionModule)
-        );
-
-        // execution module overrides authorization check
-        assertTrue(vault.isAuthorized(vm.addr(2)));
+        vault.setExecutor(address(mockExecutor));
 
         // execution module handles fallback calls
-        assertEq(MockExecutionModule(vaultAddress).customFunction(), 12345);
+        assertEq(MockExecutor(vaultAddress).customFunction(), 12345);
     }
 }

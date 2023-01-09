@@ -1,28 +1,63 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+import "forge-std/Script.sol";
+
+import "openzeppelin-contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/token/ERC721/IERC721Receiver.sol";
 import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
 import "openzeppelin-contracts/interfaces/IERC1271.sol";
 import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
+import "openzeppelin-contracts/utils/Address.sol";
 
-import "./VaultRegistry.sol";
+import "./MinimalReceiver.sol";
 import "./interfaces/IVault.sol";
-import "./interfaces/IExecutionModule.sol";
 import "./lib/MinimalProxyStore.sol";
-import "./lib/Delegate.sol";
 
 /**
  * @title A smart contract wallet owned by a single ERC721 token
  * @author Jayden Windle (jaydenwindle)
  */
-contract Vault is IVault {
+contract Vault is IVault, MinimalReceiver {
     error NotAuthorized();
+    error VaultLocked();
 
     /**
-     * @dev Address of VaultRegistry
+     * @dev Timestamp at which Vault will unlock
      */
-    VaultRegistry public immutable registry = VaultRegistry(msg.sender);
+    uint256 public unlockTimestamp;
+
+    /**
+     * @dev Mapping from owner address to executor address
+     */
+    mapping(address => address) public executor;
+
+    /**
+     * @dev If vault is unlocked and an executor is set, pass call to executor
+     */
+    fallback(bytes calldata data)
+        external
+        payable
+        returns (bytes memory result)
+    {
+        if (unlockTimestamp > block.timestamp) revert VaultLocked();
+
+        address _owner = owner();
+        address _executor = executor[_owner];
+
+        // accept funds if executor is undefined or cannot be called
+        if (_executor == address(0)) return "";
+        if (_executor.code.length == 0) return "";
+
+        bool success;
+        (success, result) = _executor.call(data);
+
+        if (!success) {
+            assembly {
+                revert(add(result, 32), mload(result))
+            }
+        }
+    }
 
     /**
      * @dev Executes a transaction from the Vault. Must be called by an authorized sender.
@@ -34,13 +69,13 @@ contract Vault is IVault {
     function executeCall(
         address payable to,
         uint256 value,
-        bytes calldata data,
-        bool useExecutionModule
-    ) external payable {
-        if (!_isAuthorized(msg.sender, useExecutionModule))
-            revert NotAuthorized();
+        bytes calldata data
+    ) external payable returns (bytes memory result) {
+        if (unlockTimestamp > block.timestamp) revert VaultLocked();
+        if (!isOwnerOrExecutor(msg.sender)) revert NotAuthorized();
 
-        (bool success, bytes memory result) = to.call{value: value}(data);
+        bool success;
+        (success, result) = to.call{value: value}(data);
 
         if (!success) {
             assembly {
@@ -50,26 +85,51 @@ contract Vault is IVault {
     }
 
     /**
-     * @dev Executes a delegated transaction from the Vault, allowing vault
-     * functionality to be expanded without setting an execution module. Must be called by an authorized sender.
+     * @dev Sets executior address for Vault, allowing owner to use a custom implementation if they choose to.
+     * When the token controlling the vault is transferred, the implementation address will reset
      *
-     * @param to      Contract address of the delegated call
-     * @param data    Encoded payload of the delegated call
+     * @param _executionModule the address of the execution module
      */
-    function executeDelegateCall(
-        address payable to,
-        bytes calldata data,
-        bool useExecutionModule
-    ) external payable {
-        if (!_isAuthorized(msg.sender, useExecutionModule))
-            revert NotAuthorized();
+    function setExecutor(address _executionModule) external {
+        if (unlockTimestamp > block.timestamp) revert VaultLocked();
 
-        (bool success, bytes memory result) = to.delegatecall(data);
-        if (!success) {
-            assembly {
-                revert(add(result, 32), mload(result))
-            }
-        }
+        address _owner = owner();
+        if (_owner != msg.sender) revert NotAuthorized();
+
+        executor[_owner] = _executionModule;
+    }
+
+    /**
+     * @dev Locks Vault, preventing transactions from being executed until a certain time
+     *
+     * @param _unlockTimestamp timestamp when the vault will become unlocked
+     */
+    function lock(uint256 _unlockTimestamp) external {
+        if (unlockTimestamp > block.timestamp) revert VaultLocked();
+
+        address _owner = owner();
+        if (_owner != msg.sender) revert NotAuthorized();
+
+        unlockTimestamp = _unlockTimestamp;
+    }
+
+    /**
+     * @dev Returns Vault lock status
+     *
+     * @return true if Vault is locked, false otherwise
+     */
+    function isLocked() external view returns (bool) {
+        return unlockTimestamp > block.timestamp;
+    }
+
+    /**
+     * @dev Returns true if caller is authorized to execute actions on this vault
+     *
+     * @param caller the address to query authorization for
+     * @return true if caller is authorized, false otherwise
+     */
+    function isAuthorized(address caller) external view returns (bool) {
+        return isOwnerOrExecutor(caller);
     }
 
     /**
@@ -83,33 +143,22 @@ contract Vault is IVault {
         view
         returns (bytes4 magicValue)
     {
-        // If vault is locked, return invalid for all signatures
-        bool isLocked = registry.vaultLocked(address(this));
-        if (isLocked) {
-            return "";
-        }
+        // If vault is locked, disable signing
+        if (unlockTimestamp > block.timestamp) return "";
 
-        // If vault has an executionModule, return its verification result
+        // If vault has an executor, check if executor signature is valid
         address _owner = owner();
-        address executionModule = registry.vaultExecutionModule(
-            address(this),
-            _owner
-        );
-        if (executionModule != address(0)) {
-            return
-                IExecutionModule(executionModule).isValidSignature(
-                    hash,
-                    signature
-                );
+        address _executor = executor[_owner];
+
+        if (
+            _executor != address(0) &&
+            SignatureChecker.isValidSignatureNow(_executor, hash, signature)
+        ) {
+            return IERC1271.isValidSignature.selector;
         }
 
         // Default - check if signature is valid for vault owner
-        bool isValid = SignatureChecker.isValidSignatureNow(
-            _owner,
-            hash,
-            signature
-        );
-        if (isValid) {
+        if (SignatureChecker.isValidSignatureNow(_owner, hash, signature)) {
             return IERC1271.isValidSignature.selector;
         }
 
@@ -117,7 +166,7 @@ contract Vault is IVault {
     }
 
     /**
-     * @dev Returns the owner of the token that controls this Vault (for Ownable compatibility)
+     * @dev Returns the owner of the token that controls this Vault (public for Ownable compatibility)
      *
      * @return the address of the Vault owner
      */
@@ -135,105 +184,18 @@ contract Vault is IVault {
     }
 
     /**
-     * @dev Returns true if caller is authorized to execute actions on this vault. Only uses execution module for auth
-     * if useExecutionModule is set to true.
+     * @dev Returns true if caller is owner or ececutor
      *
-     * @param caller the address to query authorization for
-     * @return bool true if caller is authorized, false otherwise
+     * @param caller the address to query for
+     * @return true if caller is owner or executor, false otherwise
      */
-    function _isAuthorized(address caller, bool useExecutionModule)
-        internal
-        view
-        returns (bool)
-    {
-        // If vault is locked, return false for all auth queries
-        bool isLocked = registry.vaultLocked(address(this));
-        if (isLocked) {
-            return false;
-        }
-
+    function isOwnerOrExecutor(address caller) internal view returns (bool) {
         address _owner = owner();
+        if (caller == _owner) return true;
 
-        // If useExecutionModule is set, lookup executionModule
-        address executionModule;
-        if (useExecutionModule) {
-            executionModule = registry.vaultExecutionModule(
-                address(this),
-                _owner
-            );
-        }
+        address _executor = executor[_owner];
+        if (caller == _executor) return true;
 
-        // if useExecutionModule is false or executionModule is not set, return default auth
-        if (executionModule == address(0)) return caller == _owner;
-
-        // If executionModule is set, query it for auth status
-        return IExecutionModule(executionModule).isAuthorized(caller);
-    }
-
-    /**
-     * @dev Returns true if caller is authorized to execute actions on this vault
-     *
-     * @param caller the address to query authorization for
-     * @return bool true if caller is authorized, false otherwise
-     */
-    function isAuthorized(address caller) public view virtual returns (bool) {
-        return _isAuthorized(caller, true);
-    }
-
-    /**
-     * @dev If vault is unlocked and an execution module is defined, delegate execution to the execution module
-     */
-    fallback() external payable virtual {
-        address _owner = owner();
-        address executionModule = registry.vaultExecutionModule(
-            address(this),
-            _owner
-        );
-        bool isLocked = registry.vaultLocked(address(this));
-
-        if (!isLocked) Delegate.delegate(executionModule);
-    }
-
-    /**
-     * @dev Allows all Ether transfers
-     */
-    receive() external payable virtual {}
-
-    /**
-     * @dev Allows all ERC721 tokens to be received
-     */
-    function onERC721Received(
-        address,
-        address,
-        uint256,
-        bytes calldata
-    ) external pure virtual returns (bytes4) {
-        return IERC721Receiver.onERC721Received.selector;
-    }
-
-    /**
-     * @dev Allows all ERC1155 tokens to be received
-     */
-    function onERC1155Received(
-        address,
-        address,
-        uint256,
-        uint256,
-        bytes calldata /* data */
-    ) external pure virtual returns (bytes4) {
-        return IERC1155Receiver.onERC1155Received.selector;
-    }
-
-    /**
-     * @dev Allows all ERC1155 token batches to be received
-     */
-    function onERC1155BatchReceived(
-        address,
-        address,
-        uint256[] calldata,
-        uint256[] calldata,
-        bytes calldata
-    ) external pure virtual returns (bytes4) {
-        return IERC1155Receiver.onERC1155BatchReceived.selector;
+        return false;
     }
 }

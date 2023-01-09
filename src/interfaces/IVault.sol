@@ -1,53 +1,22 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-interface IVault {
+import "openzeppelin-contracts/interfaces/IERC1271.sol";
+
+interface IVault is IERC1271 {
     function executeCall(
         address payable to,
         uint256 value,
-        bytes calldata data,
-        bool useExecutionModule
-    ) external payable;
+        bytes calldata data
+    ) external payable returns (bytes memory);
 
-    function executeDelegateCall(
-        address payable to,
-        bytes calldata data,
-        bool useExecutionModule
-    ) external payable;
+    function executor(address owner) external view returns (address);
+    function setExecutor(address _executionModule) external;
 
-    receive() external payable;
-
-    fallback() external payable;
-
-    function onERC721Received(
-        address,
-        address,
-        uint256,
-        bytes calldata
-    ) external returns (bytes4);
-
-    function onERC1155Received(
-        address,
-        address,
-        uint256,
-        uint256,
-        bytes calldata /* data */
-    ) external returns (bytes4);
-
-    function onERC1155BatchReceived(
-        address,
-        address,
-        uint256[] calldata,
-        uint256[] calldata,
-        bytes calldata
-    ) external returns (bytes4);
-
-    function owner() external view returns (address);
+    function isLocked() external view returns (bool);
+    function lock(uint256 _unlockTimestamp) external;
 
     function isAuthorized(address caller) external view returns (bool);
 
-    function isValidSignature(bytes32 hash, bytes memory signature)
-        external
-        view
-        returns (bytes4 magicValue);
+    function owner() external view returns (address);
 }
