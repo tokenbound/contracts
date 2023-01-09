@@ -1,6 +1,6 @@
 name: test
 
-on: push
+on: [pull_request]
 
 env:
   FOUNDRY_PROFILE: ci
@@ -30,5 +30,6 @@ jobs:
 
       - name: Run Forge tests
         run: |
-          forge test -vvv
+          forge test -vvv --no-match-test testCannotOverflowContext
+          forge test -vvv --match-test testCannotOverflowContext --code-size-limit 24576
         id: test
