@@ -128,7 +128,7 @@ contract Vault is IVault, MinimalReceiver {
      * @param caller the address to query authorization for
      * @return true if caller is authorized, false otherwise
      */
-    function isAuthorized(address caller) external view virtual returns (bool) {
+    function isAuthorized(address caller) external view returns (bool) {
         return isOwnerOrExecutor(caller);
     }
 

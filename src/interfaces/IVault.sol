@@ -16,7 +16,7 @@ interface IVault is IERC1271 {
     function isLocked() external view returns (bool);
     function lock(uint256 _unlockTimestamp) external;
 
-    function isAuthorized(address caller) external view virtual returns (bool);
+    function isAuthorized(address caller) external view returns (bool);
 
-    function owner() public view returns (address);
+    function owner() external view returns (address);
 }
