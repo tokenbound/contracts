@@ -456,7 +456,13 @@ contract VaultTest is Test {
         // fallback calls should revert if vault is locked
         vm.prank(user1);
         vm.expectRevert(Vault.VaultLocked.selector);
-        vaultAddress.call(abi.encodeWithSignature("customFunction()"));
+        (bool success, bytes memory result) = vaultAddress.call(
+            abi.encodeWithSignature("customFunction()")
+        );
+
+        // silence unused variable compiler warnings
+        success;
+        result;
 
         // setExecutor calls should revert if vault is locked
         vm.prank(user1);
@@ -512,14 +518,18 @@ contract VaultTest is Test {
         MockExecutor mockExecutor = new MockExecutor();
 
         // calls succeed with noop if executor is undefined
-        (bool success, bytes memory result) = vaultAddress.call(abi.encodeWithSignature("customFunction()"));
+        (bool success, bytes memory result) = vaultAddress.call(
+            abi.encodeWithSignature("customFunction()")
+        );
         assertEq(success, true);
         assertEq(result, "");
 
         // calls succeed with noop if executor is EOA
         vm.prank(user1);
         vault.setExecutor(vm.addr(1337));
-        (bool success1, bytes memory result1) = vaultAddress.call(abi.encodeWithSignature("customFunction()"));
+        (bool success1, bytes memory result1) = vaultAddress.call(
+            abi.encodeWithSignature("customFunction()")
+        );
         assertEq(success1, true);
         assertEq(result1, "");
 
@@ -544,6 +554,7 @@ contract VaultTest is Test {
         vm.expectRevert(MockReverter.MockError.selector);
         MockExecutor(vaultAddress).fail();
     }
+
     function testExecuteCallRevert(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
@@ -563,7 +574,11 @@ contract VaultTest is Test {
 
         vm.prank(user1);
         vm.expectRevert(MockReverter.MockError.selector);
-        vault.executeCall(payable(address(mockReverter)), 0, abi.encodeWithSignature("fail()"));
+        vault.executeCall(
+            payable(address(mockReverter)),
+            0,
+            abi.encodeWithSignature("fail()")
+        );
     }
 
     function testVaultOwnerIsNullIfContextNotSet() public {
