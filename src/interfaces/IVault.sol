@@ -5,15 +5,8 @@ interface IVault {
     function executeCall(
         address payable to,
         uint256 value,
-        bytes calldata data,
-        bool useExecutionModule
-    ) external payable;
-
-    function executeDelegateCall(
-        address payable to,
-        bytes calldata data,
-        bool useExecutionModule
-    ) external payable;
+        bytes calldata data
+    ) external payable returns (bytes memory);
 
     receive() external payable;
 
