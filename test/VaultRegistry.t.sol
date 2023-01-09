@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 
 import "../src/Vault.sol";
 import "../src/VaultRegistry.sol";
+import "../src/lib/MinimalProxyStore.sol";
 
 contract VaultRegistryTest is Test {
     VaultRegistry public vaultRegistry;
@@ -13,20 +14,24 @@ contract VaultRegistryTest is Test {
         vaultRegistry = new VaultRegistry();
     }
 
-    function testDeployVault(uint256 tokenId) public {
+    function testDeployVault(address tokenCollection, uint256 tokenId) public {
         assertTrue(address(vaultRegistry) != address(0));
 
         address predictedVaultAddress = vaultRegistry.vaultAddress(
-            vm.addr(1337),
+            tokenCollection,
             tokenId
         );
 
         address vaultAddress = vaultRegistry.deployVault(
-            vm.addr(1337),
+            tokenCollection,
             tokenId
         );
 
         assertTrue(vaultAddress != address(0));
         assertTrue(vaultAddress == predictedVaultAddress);
+        assertEq(
+            MinimalProxyStore.getContext(vaultAddress),
+            abi.encode(tokenCollection, tokenId)
+        );
     }
 }

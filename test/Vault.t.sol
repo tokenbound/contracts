@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import "forge-std/Test.sol";
 
 import "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import "openzeppelin-contracts/proxy/Clones.sol";
 
 import "../src/Vault.sol";
 import "../src/VaultRegistry.sol";
@@ -12,6 +13,7 @@ import "./mocks/MockERC721.sol";
 import "./mocks/MockERC1155.sol";
 import "./mocks/MockERC20.sol";
 import "./mocks/MockExecutor.sol";
+import "./mocks/MockReverter.sol";
 
 contract VaultTest is Test {
     MockERC721 public dummyERC721;
@@ -331,6 +333,16 @@ contract VaultTest is Test {
         vm.prank(user2);
         vm.expectRevert(Vault.NotAuthorized.selector);
         vault.executeCall(payable(user2), 0.1 ether, "");
+
+        // should fail if user2 tries to set executor
+        vm.prank(user2);
+        vm.expectRevert(Vault.NotAuthorized.selector);
+        vault.setExecutor(vm.addr(1337));
+
+        // should fail if user2 tries to lock vault
+        vm.prank(user2);
+        vm.expectRevert(Vault.NotAuthorized.selector);
+        vault.lock(type(uint256).max);
     }
 
     function testVaultOwnershipTransfer(uint256 tokenId) public {
@@ -434,10 +446,33 @@ contract VaultTest is Test {
         vm.prank(user1);
         vault.lock(unlockTimestamp);
 
+        assertEq(vault.isLocked(), true);
+
         // transaction should revert if vault is locked
         vm.prank(user1);
         vm.expectRevert(Vault.VaultLocked.selector);
         vault.executeCall(payable(user1), 1 ether, "");
+
+        // fallback calls should revert if vault is locked
+        vm.prank(user1);
+        vm.expectRevert(Vault.VaultLocked.selector);
+        (bool success, bytes memory result) = vaultAddress.call(
+            abi.encodeWithSignature("customFunction()")
+        );
+
+        // silence unused variable compiler warnings
+        success;
+        result;
+
+        // setExecutor calls should revert if vault is locked
+        vm.prank(user1);
+        vm.expectRevert(Vault.VaultLocked.selector);
+        vault.setExecutor(vm.addr(1337));
+
+        // lock calls should revert if vault is locked
+        vm.prank(user1);
+        vm.expectRevert(Vault.VaultLocked.selector);
+        vault.lock(0);
 
         // signing should fail if vault is locked
         bytes32 hash = keccak256("This is a signed message");
@@ -482,10 +517,73 @@ contract VaultTest is Test {
 
         MockExecutor mockExecutor = new MockExecutor();
 
+        // calls succeed with noop if executor is undefined
+        (bool success, bytes memory result) = vaultAddress.call(
+            abi.encodeWithSignature("customFunction()")
+        );
+        assertEq(success, true);
+        assertEq(result, "");
+
+        // calls succeed with noop if executor is EOA
+        vm.prank(user1);
+        vault.setExecutor(vm.addr(1337));
+        (bool success1, bytes memory result1) = vaultAddress.call(
+            abi.encodeWithSignature("customFunction()")
+        );
+        assertEq(success1, true);
+        assertEq(result1, "");
+
+        assertEq(vault.isAuthorized(user1), true);
+        assertEq(vault.isAuthorized(address(mockExecutor)), false);
+
         vm.prank(user1);
         vault.setExecutor(address(mockExecutor));
 
+        assertEq(vault.isAuthorized(user1), true);
+        assertEq(vault.isAuthorized(address(mockExecutor)), true);
+
+        assertEq(
+            vault.isValidSignature(bytes32(0), ""),
+            IERC1271.isValidSignature.selector
+        );
+
         // execution module handles fallback calls
         assertEq(MockExecutor(vaultAddress).customFunction(), 12345);
+
+        // execution bubbles up errors on revert
+        vm.expectRevert(MockReverter.MockError.selector);
+        MockExecutor(vaultAddress).fail();
+    }
+
+    function testExecuteCallRevert(uint256 tokenId) public {
+        address user1 = vm.addr(1);
+
+        tokenCollection.mint(user1, tokenId);
+        assertEq(tokenCollection.ownerOf(tokenId), user1);
+
+        address payable vaultAddress = vaultRegistry.deployVault(
+            address(tokenCollection),
+            tokenId
+        );
+
+        vm.deal(vaultAddress, 1 ether);
+
+        Vault vault = Vault(vaultAddress);
+
+        MockReverter mockReverter = new MockReverter();
+
+        vm.prank(user1);
+        vm.expectRevert(MockReverter.MockError.selector);
+        vault.executeCall(
+            payable(address(mockReverter)),
+            0,
+            abi.encodeWithSignature("fail()")
+        );
+    }
+
+    function testVaultOwnerIsNullIfContextNotSet() public {
+        address vaultClone = Clones.clone(vaultRegistry.vaultImplementation());
+
+        assertEq(Vault(payable(vaultClone)).owner(), address(0));
     }
 }

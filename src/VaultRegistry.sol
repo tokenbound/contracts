@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "forge-std/Script.sol";
-
 import "openzeppelin-contracts/proxy/Clones.sol";
 import "openzeppelin-contracts/utils/Create2.sol";
 import "openzeppelin-contracts/token/ERC721/IERC721.sol";
