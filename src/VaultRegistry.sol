@@ -26,16 +26,6 @@ contract VaultRegistry {
     address public vaultImplementation;
 
     /**
-     * @dev Mapping from vault address to owner address to execution module address
-     */
-    mapping(address => mapping(address => address)) private executionModule;
-
-    /**
-     * @dev Mapping from vault address unlock timestamp
-     */
-    mapping(address => uint256) public unlockTimestamp;
-
-    /**
      * @dev Deploys the default Vault implementation
      */
     constructor() {
