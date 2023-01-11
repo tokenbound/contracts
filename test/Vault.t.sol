@@ -342,7 +342,7 @@ contract VaultTest is Test {
         // should fail if user2 tries to lock vault
         vm.prank(user2);
         vm.expectRevert(Vault.NotAuthorized.selector);
-        vault.lock(type(uint256).max);
+        vault.lock(364 days);
     }
 
     function testVaultOwnershipTransfer(uint256 tokenId) public {
@@ -440,6 +440,11 @@ contract VaultTest is Test {
         vm.deal(vaultAddress, 1 ether);
 
         Vault vault = Vault(vaultAddress);
+
+        // cannot be locked for more than 365 days
+        vm.prank(user1);
+        vm.expectRevert(Vault.ExceedsMaxLockTime.selector);
+        vault.lock(366 days);
 
         // lock vault for 10 days
         uint256 unlockTimestamp = block.timestamp + 10 days;
