@@ -31,6 +31,16 @@ contract Vault is IVault, MinimalReceiver {
     mapping(address => address) public executor;
 
     /**
+     * @dev Emitted whenever the lock status of a vault is updated
+     */
+    event LockUpdated(uint256 timestamp);
+
+    /**
+     * @dev Emitted whenever the executor for a vault is updated
+     */
+    event ExecutorUpdated(address owner, address executor);
+
+    /**
      * @dev If vault is unlocked and an executor is set, pass call to executor
      */
     fallback(bytes calldata data)
@@ -95,6 +105,8 @@ contract Vault is IVault, MinimalReceiver {
         if (_owner != msg.sender) revert NotAuthorized();
 
         executor[_owner] = _executionModule;
+
+        emit ExecutorUpdated(_owner, _executionModule);
     }
 
     /**
@@ -109,6 +121,8 @@ contract Vault is IVault, MinimalReceiver {
         if (_owner != msg.sender) revert NotAuthorized();
 
         unlockTimestamp = _unlockTimestamp;
+
+        emit LockUpdated(_unlockTimestamp);
     }
 
     /**
