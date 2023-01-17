@@ -2,11 +2,8 @@
 pragma solidity ^0.8.13;
 
 import "openzeppelin-contracts/token/ERC721/IERC721.sol";
-import "openzeppelin-contracts/token/ERC721/IERC721Receiver.sol";
-import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
 import "openzeppelin-contracts/interfaces/IERC1271.sol";
 import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
-import "openzeppelin-contracts/utils/Address.sol";
 
 import "./MinimalReceiver.sol";
 import "./interfaces/IVault.sol";
