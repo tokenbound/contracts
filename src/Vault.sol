@@ -65,7 +65,7 @@ contract Vault is IVault, MinimalReceiver {
      * @param data    Encoded payload of the transaction
      */
     function executeCall(
-        address payable to,
+        address to,
         uint256 value,
         bytes calldata data
     ) external payable returns (bytes memory result) {
