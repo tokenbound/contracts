@@ -24,6 +24,11 @@ contract VaultRegistry {
     address public vaultImplementation;
 
     /**
+     * @dev Emitted whenever a vault is created
+     */
+    event VaultCreated(address vault, address tokenCollection, uint256 tokenId);
+
+    /**
      * @dev Deploys the default Vault implementation
      */
     constructor() {
@@ -48,6 +53,8 @@ contract VaultRegistry {
             encodedTokenData,
             salt
         );
+
+        emit VaultCreated(vaultProxy, tokenCollection, tokenId);
 
         return vaultProxy;
     }
