@@ -24,6 +24,11 @@ contract VaultRegistry {
     address public vaultImplementation;
 
     /**
+     * @dev Emitted whenever a vault is created
+     */
+    event VaultCreated(address vault, address tokenCollection, uint256 tokenId);
+
+    /**
      * @dev Deploys the default Vault implementation
      */
     constructor() {
@@ -39,7 +44,7 @@ contract VaultRegistry {
      */
     function deployVault(address tokenCollection, uint256 tokenId)
         external
-        returns (address payable)
+        returns (address)
     {
         bytes memory encodedTokenData = abi.encode(tokenCollection, tokenId);
         bytes32 salt = keccak256(encodedTokenData);
@@ -49,7 +54,9 @@ contract VaultRegistry {
             salt
         );
 
-        return payable(vaultProxy);
+        emit VaultCreated(vaultProxy, tokenCollection, tokenId);
+
+        return vaultProxy;
     }
 
     /**
@@ -63,7 +70,7 @@ contract VaultRegistry {
     function vaultAddress(address tokenCollection, uint256 tokenId)
         external
         view
-        returns (address payable)
+        returns (address)
     {
         bytes memory encodedTokenData = abi.encode(tokenCollection, tokenId);
         bytes32 salt = keccak256(encodedTokenData);
@@ -74,6 +81,6 @@ contract VaultRegistry {
             salt
         );
 
-        return payable(vaultProxy);
+        return vaultProxy;
     }
 }

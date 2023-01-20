@@ -19,6 +19,7 @@ import "./lib/MinimalProxyStore.sol";
 contract Vault is IVault, MinimalReceiver {
     error NotAuthorized();
     error VaultLocked();
+    error ExceedsMaxLockTime();
 
     /**
      * @dev Timestamp at which Vault will unlock
@@ -34,6 +35,16 @@ contract Vault is IVault, MinimalReceiver {
         if (unlockTimestamp > block.timestamp) revert VaultLocked();
         _;
     }
+
+    /**
+     * @dev Emitted whenever the lock status of a vault is updated
+     */
+    event LockUpdated(uint256 timestamp);
+
+    /**
+     * @dev Emitted whenever the executor for a vault is updated
+     */
+    event ExecutorUpdated(address owner, address executor);
 
     /**
      * @dev If vault is unlocked and an executor is set, pass call to executor
@@ -69,7 +80,7 @@ contract Vault is IVault, MinimalReceiver {
      * @param data    Encoded payload of the transaction
      */
     function executeCall(
-        address payable to,
+        address to,
         uint256 value,
         bytes calldata data
     ) external payable onlyUnlocked returns (bytes memory result) {
@@ -96,6 +107,8 @@ contract Vault is IVault, MinimalReceiver {
         if (_owner != msg.sender) revert NotAuthorized();
 
         executor[_owner] = _executionModule;
+
+        emit ExecutorUpdated(_owner, _executionModule);
     }
 
     /**
@@ -104,10 +117,15 @@ contract Vault is IVault, MinimalReceiver {
      * @param _unlockTimestamp timestamp when the vault will become unlocked
      */
     function lock(uint256 _unlockTimestamp) external onlyUnlocked {
+        if (_unlockTimestamp > block.timestamp + 365 days)
+            revert ExceedsMaxLockTime();
+
         address _owner = owner();
         if (_owner != msg.sender) revert NotAuthorized();
 
         unlockTimestamp = _unlockTimestamp;
+
+        emit LockUpdated(_unlockTimestamp);
     }
 
     /**
