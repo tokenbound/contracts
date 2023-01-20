@@ -32,8 +32,8 @@ contract VaultRegistry {
 
     /**
      * @dev Deploys the Vault instance for an ERC721 token. Will revert if Vault has already been deployed
-     *
      * @param tokenCollection the contract address of the ERC721 token which will control the deployed Vault
+     *
      * @param tokenId the token ID of the ERC721 token which will control the deployed Vault
      * @return The address of the deployed Vault
      */
@@ -41,7 +41,11 @@ contract VaultRegistry {
         external
         returns (address)
     {
-        bytes memory encodedTokenData = abi.encode(tokenCollection, tokenId);
+        bytes memory encodedTokenData = abi.encode(
+            block.chainid,
+            tokenCollection,
+            tokenId
+        );
         bytes32 salt = keccak256(encodedTokenData);
         address vaultProxy = MinimalProxyStore.cloneDeterministic(
             vaultImplementation,
@@ -67,7 +71,11 @@ contract VaultRegistry {
         view
         returns (address)
     {
-        bytes memory encodedTokenData = abi.encode(tokenCollection, tokenId);
+        bytes memory encodedTokenData = abi.encode(
+            block.chainid,
+            tokenCollection,
+            tokenId
+        );
         bytes32 salt = keccak256(encodedTokenData);
 
         address vaultProxy = MinimalProxyStore.predictDeterministicAddress(

@@ -31,7 +31,7 @@ contract VaultRegistryTest is Test {
         assertTrue(vaultAddress == predictedVaultAddress);
         assertEq(
             MinimalProxyStore.getContext(vaultAddress),
-            abi.encode(tokenCollection, tokenId)
+            abi.encode(block.chainid, tokenCollection, tokenId)
         );
     }
 }
