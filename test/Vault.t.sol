@@ -40,7 +40,7 @@ contract VaultTest is Test {
         vm.deal(user1, 0.2 ether);
 
         // get address that vault will be deployed to (before token is minted)
-        address payable vaultAddress = vaultRegistry.vaultAddress(
+        address vaultAddress = vaultRegistry.vaultAddress(
             address(tokenCollection),
             tokenId
         );
@@ -58,14 +58,14 @@ contract VaultTest is Test {
         assertEq(vaultAddress.balance, 0.2 ether);
 
         // deploy vault contract (from a different wallet)
-        address payable createdVaultInstance = vaultRegistry.deployVault(
+        address createdVaultInstance = vaultRegistry.deployVault(
             address(tokenCollection),
             tokenId
         );
 
         assertEq(vaultAddress, createdVaultInstance);
 
-        Vault vault = Vault(vaultAddress);
+        Vault vault = Vault(payable(vaultAddress));
 
         // user1 executes transaction to send ETH from vault
         vm.prank(user1);
@@ -80,7 +80,7 @@ contract VaultTest is Test {
         address user1 = vm.addr(1);
         vm.deal(user1, 0.2 ether);
 
-        address payable vaultAddress = vaultRegistry.deployVault(
+        address vaultAddress = vaultRegistry.deployVault(
             address(tokenCollection),
             tokenId
         );
@@ -95,7 +95,7 @@ contract VaultTest is Test {
 
         assertEq(vaultAddress.balance, 0.2 ether);
 
-        Vault vault = Vault(vaultAddress);
+        Vault vault = Vault(payable(vaultAddress));
 
         vm.prank(user1);
         vault.executeCall(payable(user1), 0.1 ether, "");
@@ -107,7 +107,7 @@ contract VaultTest is Test {
     function testTransferERC20PreDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address payable computedVaultInstance = vaultRegistry.vaultAddress(
+        address computedVaultInstance = vaultRegistry.vaultAddress(
             address(tokenCollection),
             tokenId
         );
@@ -119,12 +119,12 @@ contract VaultTest is Test {
 
         assertEq(dummyERC20.balanceOf(computedVaultInstance), 1 ether);
 
-        address payable vaultAddress = vaultRegistry.deployVault(
+        address vaultAddress = vaultRegistry.deployVault(
             address(tokenCollection),
             tokenId
         );
 
-        Vault vault = Vault(vaultAddress);
+        Vault vault = Vault(payable(vaultAddress));
 
         bytes memory erc20TransferCall = abi.encodeWithSignature(
             "transfer(address,uint256)",
@@ -141,7 +141,7 @@ contract VaultTest is Test {
     function testTransferERC20PostDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address payable vaultAddress = vaultRegistry.deployVault(
+        address vaultAddress = vaultRegistry.deployVault(
             address(tokenCollection),
             tokenId
         );
@@ -153,7 +153,7 @@ contract VaultTest is Test {
 
         assertEq(dummyERC20.balanceOf(vaultAddress), 1 ether);
 
-        Vault vault = Vault(vaultAddress);
+        Vault vault = Vault(payable(vaultAddress));
 
         bytes memory erc20TransferCall = abi.encodeWithSignature(
             "transfer(address,uint256)",
@@ -170,7 +170,7 @@ contract VaultTest is Test {
     function testTransferERC1155PreDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address payable computedVaultInstance = vaultRegistry.vaultAddress(
+        address computedVaultInstance = vaultRegistry.vaultAddress(
             address(tokenCollection),
             tokenId
         );
@@ -182,12 +182,12 @@ contract VaultTest is Test {
 
         assertEq(dummyERC1155.balanceOf(computedVaultInstance, 1), 10);
 
-        address payable vaultAddress = vaultRegistry.deployVault(
+        address vaultAddress = vaultRegistry.deployVault(
             address(tokenCollection),
             tokenId
         );
 
-        Vault vault = Vault(vaultAddress);
+        Vault vault = Vault(payable(vaultAddress));
 
         bytes memory erc1155TransferCall = abi.encodeWithSignature(
             "safeTransferFrom(address,address,uint256,uint256,bytes)",
@@ -211,7 +211,7 @@ contract VaultTest is Test {
     function testTransferERC1155PostDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address payable vaultAddress = vaultRegistry.deployVault(
+        address vaultAddress = vaultRegistry.deployVault(
             address(tokenCollection),
             tokenId
         );
@@ -223,7 +223,7 @@ contract VaultTest is Test {
 
         assertEq(dummyERC1155.balanceOf(vaultAddress, 1), 10);
 
-        Vault vault = Vault(vaultAddress);
+        Vault vault = Vault(payable(vaultAddress));
 
         bytes memory erc1155TransferCall = abi.encodeWithSignature(
             "safeTransferFrom(address,address,uint256,uint256,bytes)",
@@ -247,7 +247,7 @@ contract VaultTest is Test {
     function testTransferERC721PreDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address payable computedVaultInstance = vaultRegistry.vaultAddress(
+        address computedVaultInstance = vaultRegistry.vaultAddress(
             address(tokenCollection),
             tokenId
         );
@@ -260,12 +260,12 @@ contract VaultTest is Test {
         assertEq(dummyERC721.balanceOf(computedVaultInstance), 1);
         assertEq(dummyERC721.ownerOf(1), computedVaultInstance);
 
-        address payable vaultAddress = vaultRegistry.deployVault(
+        address vaultAddress = vaultRegistry.deployVault(
             address(tokenCollection),
             tokenId
         );
 
-        Vault vault = Vault(vaultAddress);
+        Vault vault = Vault(payable(vaultAddress));
 
         bytes memory erc721TransferCall = abi.encodeWithSignature(
             "safeTransferFrom(address,address,uint256)",
@@ -284,7 +284,7 @@ contract VaultTest is Test {
     function testTransferERC721PostDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address payable vaultAddress = vaultRegistry.deployVault(
+        address vaultAddress = vaultRegistry.deployVault(
             address(tokenCollection),
             tokenId
         );
@@ -297,7 +297,7 @@ contract VaultTest is Test {
         assertEq(dummyERC721.balanceOf(vaultAddress), 1);
         assertEq(dummyERC721.ownerOf(1), vaultAddress);
 
-        Vault vault = Vault(vaultAddress);
+        Vault vault = Vault(payable(vaultAddress));
 
         bytes memory erc721TransferCall = abi.encodeWithSignature(
             "safeTransferFrom(address,address,uint256)",
@@ -320,14 +320,14 @@ contract VaultTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address payable vaultAddress = vaultRegistry.deployVault(
+        address vaultAddress = vaultRegistry.deployVault(
             address(tokenCollection),
             tokenId
         );
 
         vm.deal(vaultAddress, 1 ether);
 
-        Vault vault = Vault(vaultAddress);
+        Vault vault = Vault(payable(vaultAddress));
 
         // should fail if user2 tries to use vault
         vm.prank(user2);
@@ -342,7 +342,7 @@ contract VaultTest is Test {
         // should fail if user2 tries to lock vault
         vm.prank(user2);
         vm.expectRevert(Vault.NotAuthorized.selector);
-        vault.lock(type(uint256).max);
+        vault.lock(364 days);
     }
 
     function testVaultOwnershipTransfer(uint256 tokenId) public {
@@ -352,14 +352,14 @@ contract VaultTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address payable vaultAddress = vaultRegistry.deployVault(
+        address vaultAddress = vaultRegistry.deployVault(
             address(tokenCollection),
             tokenId
         );
 
         vm.deal(vaultAddress, 1 ether);
 
-        Vault vault = Vault(vaultAddress);
+        Vault vault = Vault(payable(vaultAddress));
 
         // should fail if user2 tries to use vault
         vm.prank(user2);
@@ -384,12 +384,12 @@ contract VaultTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address payable vaultAddress = vaultRegistry.deployVault(
+        address vaultAddress = vaultRegistry.deployVault(
             address(tokenCollection),
             tokenId
         );
 
-        Vault vault = Vault(vaultAddress);
+        Vault vault = Vault(payable(vaultAddress));
 
         bytes32 hash = keccak256("This is a signed message");
         (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(1, hash);
@@ -409,12 +409,12 @@ contract VaultTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address payable vaultAddress = vaultRegistry.deployVault(
+        address vaultAddress = vaultRegistry.deployVault(
             address(tokenCollection),
             tokenId
         );
 
-        Vault vault = Vault(vaultAddress);
+        Vault vault = Vault(payable(vaultAddress));
 
         bytes32 hash = keccak256("This is a signed message");
 
@@ -432,14 +432,19 @@ contract VaultTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address payable vaultAddress = vaultRegistry.deployVault(
+        address vaultAddress = vaultRegistry.deployVault(
             address(tokenCollection),
             tokenId
         );
 
         vm.deal(vaultAddress, 1 ether);
 
-        Vault vault = Vault(vaultAddress);
+        Vault vault = Vault(payable(vaultAddress));
+
+        // cannot be locked for more than 365 days
+        vm.prank(user1);
+        vm.expectRevert(Vault.ExceedsMaxLockTime.selector);
+        vault.lock(366 days);
 
         // lock vault for 10 days
         uint256 unlockTimestamp = block.timestamp + 10 days;
@@ -506,14 +511,14 @@ contract VaultTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address payable vaultAddress = vaultRegistry.deployVault(
+        address vaultAddress = vaultRegistry.deployVault(
             address(tokenCollection),
             tokenId
         );
 
         vm.deal(vaultAddress, 1 ether);
 
-        Vault vault = Vault(vaultAddress);
+        Vault vault = Vault(payable(vaultAddress));
 
         MockExecutor mockExecutor = new MockExecutor();
 
@@ -561,14 +566,14 @@ contract VaultTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address payable vaultAddress = vaultRegistry.deployVault(
+        address vaultAddress = vaultRegistry.deployVault(
             address(tokenCollection),
             tokenId
         );
 
         vm.deal(vaultAddress, 1 ether);
 
-        Vault vault = Vault(vaultAddress);
+        Vault vault = Vault(payable(vaultAddress));
 
         MockReverter mockReverter = new MockReverter();
 

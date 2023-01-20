@@ -19,6 +19,7 @@ import "./lib/MinimalProxyStore.sol";
 contract Vault is IVault, MinimalReceiver {
     error NotAuthorized();
     error VaultLocked();
+    error ExceedsMaxLockTime();
 
     /**
      * @dev Timestamp at which Vault will unlock
@@ -75,7 +76,7 @@ contract Vault is IVault, MinimalReceiver {
      * @param data    Encoded payload of the transaction
      */
     function executeCall(
-        address payable to,
+        address to,
         uint256 value,
         bytes calldata data
     ) external payable returns (bytes memory result) {
@@ -116,6 +117,8 @@ contract Vault is IVault, MinimalReceiver {
      */
     function lock(uint256 _unlockTimestamp) external {
         if (unlockTimestamp > block.timestamp) revert VaultLocked();
+        if (_unlockTimestamp > block.timestamp + 365 days)
+            revert ExceedsMaxLockTime();
 
         address _owner = owner();
         if (_owner != msg.sender) revert NotAuthorized();
