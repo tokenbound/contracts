@@ -31,6 +31,11 @@ contract Vault is IVault, MinimalReceiver {
      */
     mapping(address => address) public executor;
 
+    modifier onlyUnlocked() {
+        if (unlockTimestamp > block.timestamp) revert VaultLocked();
+        _;
+    }
+
     /**
      * @dev Emitted whenever the lock status of a vault is updated
      */
@@ -47,10 +52,9 @@ contract Vault is IVault, MinimalReceiver {
     fallback(bytes calldata data)
         external
         payable
+        onlyUnlocked
         returns (bytes memory result)
     {
-        if (unlockTimestamp > block.timestamp) revert VaultLocked();
-
         address _owner = owner();
         address _executor = executor[_owner];
 
@@ -79,8 +83,7 @@ contract Vault is IVault, MinimalReceiver {
         address to,
         uint256 value,
         bytes calldata data
-    ) external payable returns (bytes memory result) {
-        if (unlockTimestamp > block.timestamp) revert VaultLocked();
+    ) external payable onlyUnlocked returns (bytes memory result) {
         if (!isOwnerOrExecutor(msg.sender)) revert NotAuthorized();
 
         bool success;
@@ -99,9 +102,7 @@ contract Vault is IVault, MinimalReceiver {
      *
      * @param _executionModule the address of the execution module
      */
-    function setExecutor(address _executionModule) external {
-        if (unlockTimestamp > block.timestamp) revert VaultLocked();
-
+    function setExecutor(address _executionModule) external onlyUnlocked {
         address _owner = owner();
         if (_owner != msg.sender) revert NotAuthorized();
 
@@ -115,8 +116,7 @@ contract Vault is IVault, MinimalReceiver {
      *
      * @param _unlockTimestamp timestamp when the vault will become unlocked
      */
-    function lock(uint256 _unlockTimestamp) external {
-        if (unlockTimestamp > block.timestamp) revert VaultLocked();
+    function lock(uint256 _unlockTimestamp) external onlyUnlocked {
         if (_unlockTimestamp > block.timestamp + 365 days)
             revert ExceedsMaxLockTime();
 
