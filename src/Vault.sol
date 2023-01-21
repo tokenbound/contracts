@@ -5,6 +5,9 @@ import "openzeppelin-contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/interfaces/IERC1271.sol";
 import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 
+import "openzeppelin-contracts/utils/introspection/IERC165.sol";
+import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
+
 import "./MinimalReceiver.sol";
 import "./interfaces/IVault.sol";
 import "./lib/MinimalProxyStore.sol";
@@ -175,6 +178,26 @@ contract Vault is IVault, MinimalReceiver {
         }
 
         return "";
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override(ERC1155Receiver)
+        returns (bool)
+    {
+        // default interface support
+        if (
+            interfaceId == type(IVault).interfaceId ||
+            interfaceId == type(IERC1155Receiver).interfaceId ||
+            interfaceId == type(IERC165).interfaceId
+        ) {
+            return true;
+        }
+
+        // if interface is not supported by default, check executor
+        return IERC165(executor[owner()]).supportsInterface(interfaceId);
     }
 
     /**
