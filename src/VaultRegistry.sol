@@ -37,12 +37,13 @@ contract VaultRegistry {
      * @param tokenId the token ID of the ERC721 token which will control the deployed Vault
      * @return The address of the deployed Vault
      */
-    function deployVault(address tokenCollection, uint256 tokenId)
-        external
-        returns (address)
-    {
+    function deployVault(
+        uint256 chainId,
+        address tokenCollection,
+        uint256 tokenId
+    ) external returns (address) {
         bytes memory encodedTokenData = abi.encode(
-            block.chainid,
+            chainId,
             tokenCollection,
             tokenId
         );
@@ -58,6 +59,13 @@ contract VaultRegistry {
         return vaultProxy;
     }
 
+    function deployVault(address tokenCollection, uint256 tokenId)
+        external
+        returns (address)
+    {
+        return this.deployVault(block.chainid, tokenCollection, tokenId);
+    }
+
     /**
      * @dev Gets the address of the VaultProxy for an ERC721 token. If VaultProxy is
      * not yet deployed, returns the address it will be deployed to
@@ -66,13 +74,13 @@ contract VaultRegistry {
      * @param tokenId the tokenId of the ERC721 token that controls the vault
      * @return The VaultProxy address
      */
-    function vaultAddress(address tokenCollection, uint256 tokenId)
-        external
-        view
-        returns (address)
-    {
+    function vaultAddress(
+        uint256 chainId,
+        address tokenCollection,
+        uint256 tokenId
+    ) external view returns (address) {
         bytes memory encodedTokenData = abi.encode(
-            block.chainid,
+            chainId,
             tokenCollection,
             tokenId
         );
@@ -85,5 +93,13 @@ contract VaultRegistry {
         );
 
         return vaultProxy;
+    }
+
+    function vaultAddress(address tokenCollection, uint256 tokenId)
+        external
+        view
+        returns (address)
+    {
+        return this.vaultAddress(block.chainid, tokenCollection, tokenId);
     }
 }
