@@ -16,7 +16,7 @@ contract VaultRegistry {
     /**
      * @dev Address of the default vault implementation
      */
-    address public vaultImplementation;
+    address public immutable vaultImplementation;
 
     /**
      * @dev Emitted whenever a vault is created
