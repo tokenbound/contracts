@@ -32,8 +32,9 @@ contract VaultRegistry {
 
     /**
      * @dev Deploys the Vault instance for an ERC721 token. Will revert if Vault has already been deployed
-     * @param tokenCollection the contract address of the ERC721 token which will control the deployed Vault
      *
+     * @param chainId the chainid of the network the ERC721 token exists on
+     * @param tokenCollection the contract address of the ERC721 token which will control the deployed Vault
      * @param tokenId the token ID of the ERC721 token which will control the deployed Vault
      * @return The address of the deployed Vault
      */
@@ -59,6 +60,13 @@ contract VaultRegistry {
         return vaultProxy;
     }
 
+    /**
+     * @dev Deploys the Vault instance for an ERC721 token. Will revert if Vault has already been deployed
+     *
+     * @param tokenCollection the contract address of the ERC721 token which will control the deployed Vault
+     * @param tokenId the token ID of the ERC721 token which will control the deployed Vault
+     * @return The address of the deployed Vault
+     */
     function deployVault(address tokenCollection, uint256 tokenId)
         external
         returns (address)
@@ -70,6 +78,7 @@ contract VaultRegistry {
      * @dev Gets the address of the VaultProxy for an ERC721 token. If VaultProxy is
      * not yet deployed, returns the address it will be deployed to
      *
+     * @param chainId the chainid of the network the ERC721 token exists on
      * @param tokenCollection the address of the ERC721 token contract
      * @param tokenId the tokenId of the ERC721 token that controls the vault
      * @return The VaultProxy address
@@ -95,6 +104,14 @@ contract VaultRegistry {
         return vaultProxy;
     }
 
+    /**
+     * @dev Gets the address of the VaultProxy for an ERC721 token. If VaultProxy is
+     * not yet deployed, returns the address it will be deployed to
+     *
+     * @param tokenCollection the address of the ERC721 token contract
+     * @param tokenId the tokenId of the ERC721 token that controls the vault
+     * @return The VaultProxy address
+     */
     function vaultAddress(address tokenCollection, uint256 tokenId)
         external
         view
