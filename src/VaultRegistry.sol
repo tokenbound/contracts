@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+import "openzeppelin-contracts/access/Ownable2Step.sol";
+
 import "./Vault.sol";
 import "./lib/MinimalProxyStore.sol";
 
@@ -9,7 +11,7 @@ import "./lib/MinimalProxyStore.sol";
  * @dev Determines the address for each tokenbound Vault and performs deployment of vault instances
  * @author Jayden Windle (jaydenwindle)
  */
-contract VaultRegistry {
+contract VaultRegistry is Ownable2Step {
     error NotAuthorized();
     error VaultLocked();
 
@@ -17,6 +19,8 @@ contract VaultRegistry {
      * @dev Address of the default vault implementation
      */
     address public immutable vaultImplementation;
+
+    mapping(uint256 => mapping(address => bool)) public isCrossChainExecutor;
 
     /**
      * @dev Emitted whenever a vault is created
@@ -72,6 +76,14 @@ contract VaultRegistry {
         returns (address)
     {
         return this.deployVault(block.chainid, tokenCollection, tokenId);
+    }
+
+    function setCrossChainExecutor(
+        uint256 chainId,
+        address executor,
+        bool enabled
+    ) external onlyOwner {
+        isCrossChainExecutor[chainId][executor] = enabled;
     }
 
     /**

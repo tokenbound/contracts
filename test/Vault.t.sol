@@ -28,7 +28,6 @@ contract VaultTest is Test {
         dummyERC721 = new MockERC721();
         dummyERC1155 = new MockERC1155();
         dummyERC20 = new MockERC20();
-
         vaultRegistry = new VaultRegistry();
 
         tokenCollection = new MockERC721();
@@ -505,7 +504,7 @@ contract VaultTest is Test {
         assertEq(returnValue1, IERC1271.isValidSignature.selector);
     }
 
-    function testCustomExecutionModule(uint256 tokenId) public {
+    function testCustomExecutorFallback(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
         tokenCollection.mint(user1, tokenId);
@@ -560,6 +559,94 @@ contract VaultTest is Test {
         MockExecutor(vaultAddress).fail();
     }
 
+    function testCustomExecutorCalls(uint256 tokenId) public {
+        address user1 = vm.addr(1);
+        address user2 = vm.addr(2);
+
+        tokenCollection.mint(user1, tokenId);
+        assertEq(tokenCollection.ownerOf(tokenId), user1);
+
+        address vaultAddress = vaultRegistry.deployVault(
+            address(tokenCollection),
+            tokenId
+        );
+
+        vm.deal(vaultAddress, 1 ether);
+
+        Vault vault = Vault(payable(vaultAddress));
+
+        assertEq(vault.isAuthorized(user2), false);
+
+        vm.prank(user1);
+        vault.setExecutor(user2);
+
+        assertEq(vault.isAuthorized(user2), true);
+
+        vm.prank(user2);
+        vault.executeTrustedCall(user2, 0.1 ether, "");
+
+        assertEq(user2.balance, 0.1 ether);
+    }
+
+    function testCrossChainCalls() public {
+        uint256 tokenId = 1;
+        address user1 = vm.addr(1);
+        address crossChainExecutor = vm.addr(2);
+
+        uint256 chainId = block.chainid + 1;
+
+        tokenCollection.mint(user1, tokenId);
+        assertEq(tokenCollection.ownerOf(tokenId), user1);
+
+        address vaultAddress = vaultRegistry.deployVault(
+            chainId,
+            address(tokenCollection),
+            tokenId
+        );
+
+        vm.deal(vaultAddress, 1 ether);
+
+        Vault vault = Vault(payable(vaultAddress));
+
+        assertEq(vault.isAuthorized(crossChainExecutor), false);
+
+        vaultRegistry.setCrossChainExecutor(chainId, crossChainExecutor, true);
+
+        assertEq(vault.isAuthorized(crossChainExecutor), true);
+
+        vm.prank(crossChainExecutor);
+        vault.executeCrossChainCall(user1, 0.1 ether, "");
+
+        assertEq(user1.balance, 0.1 ether);
+
+        address notCrossChainExecutor = vm.addr(3);
+        vm.prank(notCrossChainExecutor);
+        vm.expectRevert(Vault.NotAuthorized.selector);
+        Vault(payable(vaultAddress)).executeCrossChainCall(
+            user1,
+            0.1 ether,
+            ""
+        );
+
+        assertEq(user1.balance, 0.1 ether);
+
+        address nativeVaultAddress = vaultRegistry.deployVault(
+            block.chainid,
+            address(tokenCollection),
+            tokenId
+        );
+
+        vm.prank(crossChainExecutor);
+        vm.expectRevert(Vault.NotAuthorized.selector);
+        Vault(payable(nativeVaultAddress)).executeCrossChainCall(
+            user1,
+            0.1 ether,
+            ""
+        );
+
+        assertEq(user1.balance, 0.1 ether);
+    }
+
     function testExecuteCallRevert(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
@@ -590,5 +677,43 @@ contract VaultTest is Test {
         address vaultClone = Clones.clone(vaultRegistry.vaultImplementation());
 
         assertEq(Vault(payable(vaultClone)).owner(), address(0));
+    }
+
+    function testEIP165Support() public {
+        uint256 tokenId = 1;
+        address user1 = vm.addr(1);
+
+        tokenCollection.mint(user1, tokenId);
+        assertEq(tokenCollection.ownerOf(tokenId), user1);
+
+        address vaultAddress = vaultRegistry.deployVault(
+            address(tokenCollection),
+            tokenId
+        );
+
+        vm.deal(vaultAddress, 1 ether);
+
+        Vault vault = Vault(payable(vaultAddress));
+
+        assertEq(vault.supportsInterface(type(IVault).interfaceId), true);
+        assertEq(
+            vault.supportsInterface(type(IERC1155Receiver).interfaceId),
+            true
+        );
+        assertEq(vault.supportsInterface(type(IERC165).interfaceId), true);
+        assertEq(
+            vault.supportsInterface(IERC1271.isValidSignature.selector),
+            false
+        );
+
+        MockExecutor mockExecutor = new MockExecutor();
+
+        vm.prank(user1);
+        vault.setExecutor(address(mockExecutor));
+
+        assertEq(
+            vault.supportsInterface(IERC1271.isValidSignature.selector),
+            true
+        );
     }
 }
