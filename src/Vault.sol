@@ -210,10 +210,12 @@ contract Vault is IVault, MinimalReceiver {
 
         if (context.length == 0) return address(0);
 
-        (address tokenCollection, uint256 tokenId) = abi.decode(
-            context,
-            (address, uint256)
-        );
+        (uint256 chainId, address tokenCollection, uint256 tokenId) = abi
+            .decode(context, (uint256, address, uint256));
+
+        if (chainId != block.chainid) {
+            return address(0);
+        }
 
         return IERC721(tokenCollection).ownerOf(tokenId);
     }

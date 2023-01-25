@@ -33,15 +33,21 @@ contract VaultRegistry {
     /**
      * @dev Deploys the Vault instance for an ERC721 token. Will revert if Vault has already been deployed
      *
+     * @param chainId the chainid of the network the ERC721 token exists on
      * @param tokenCollection the contract address of the ERC721 token which will control the deployed Vault
      * @param tokenId the token ID of the ERC721 token which will control the deployed Vault
      * @return The address of the deployed Vault
      */
-    function deployVault(address tokenCollection, uint256 tokenId)
-        external
-        returns (address)
-    {
-        bytes memory encodedTokenData = abi.encode(tokenCollection, tokenId);
+    function deployVault(
+        uint256 chainId,
+        address tokenCollection,
+        uint256 tokenId
+    ) external returns (address) {
+        bytes memory encodedTokenData = abi.encode(
+            chainId,
+            tokenCollection,
+            tokenId
+        );
         bytes32 salt = keccak256(encodedTokenData);
         address vaultProxy = MinimalProxyStore.cloneDeterministic(
             vaultImplementation,
@@ -50,6 +56,50 @@ contract VaultRegistry {
         );
 
         emit VaultCreated(vaultProxy, tokenCollection, tokenId);
+
+        return vaultProxy;
+    }
+
+    /**
+     * @dev Deploys the Vault instance for an ERC721 token. Will revert if Vault has already been deployed
+     *
+     * @param tokenCollection the contract address of the ERC721 token which will control the deployed Vault
+     * @param tokenId the token ID of the ERC721 token which will control the deployed Vault
+     * @return The address of the deployed Vault
+     */
+    function deployVault(address tokenCollection, uint256 tokenId)
+        external
+        returns (address)
+    {
+        return this.deployVault(block.chainid, tokenCollection, tokenId);
+    }
+
+    /**
+     * @dev Gets the address of the VaultProxy for an ERC721 token. If VaultProxy is
+     * not yet deployed, returns the address it will be deployed to
+     *
+     * @param chainId the chainid of the network the ERC721 token exists on
+     * @param tokenCollection the address of the ERC721 token contract
+     * @param tokenId the tokenId of the ERC721 token that controls the vault
+     * @return The VaultProxy address
+     */
+    function vaultAddress(
+        uint256 chainId,
+        address tokenCollection,
+        uint256 tokenId
+    ) external view returns (address) {
+        bytes memory encodedTokenData = abi.encode(
+            chainId,
+            tokenCollection,
+            tokenId
+        );
+        bytes32 salt = keccak256(encodedTokenData);
+
+        address vaultProxy = MinimalProxyStore.predictDeterministicAddress(
+            vaultImplementation,
+            encodedTokenData,
+            salt
+        );
 
         return vaultProxy;
     }
@@ -67,15 +117,6 @@ contract VaultRegistry {
         view
         returns (address)
     {
-        bytes memory encodedTokenData = abi.encode(tokenCollection, tokenId);
-        bytes32 salt = keccak256(encodedTokenData);
-
-        address vaultProxy = MinimalProxyStore.predictDeterministicAddress(
-            vaultImplementation,
-            encodedTokenData,
-            salt
-        );
-
-        return vaultProxy;
+        return this.vaultAddress(block.chainid, tokenCollection, tokenId);
     }
 }
