@@ -44,6 +44,9 @@ contract Vault is IVault, MinimalReceiver {
      */
     event ExecutorUpdated(address owner, address executor);
 
+    /**
+     * @dev Ensures execution can only continue if the vault is not locked
+     */
     modifier onlyUnlocked() {
         if (unlockTimestamp > block.timestamp) revert VaultLocked();
         _;
@@ -225,6 +228,12 @@ contract Vault is IVault, MinimalReceiver {
         return "";
     }
 
+    /**
+     * @dev Implements EIP-165 standard interface detection
+     *
+     * @param interfaceId the interfaceId to check support for
+     * @return true if the interface is supported, false otherwise
+     */
     function supportsInterface(bytes4 interfaceId)
         public
         view
@@ -272,6 +281,13 @@ contract Vault is IVault, MinimalReceiver {
         return IERC721(tokenCollection).ownerOf(tokenId);
     }
 
+    /**
+     * @dev Returns the stored vault context
+     *
+     * @return chainId the chainId of the ERC721 token which owns this vaule
+     * @return tokenCollection the contract address of the  ERC721 token which owns this vaule
+     * @return tokenId the tokenId of the  ERC721 token which owns this vaule
+     */
     function context()
         public
         view
@@ -287,6 +303,9 @@ contract Vault is IVault, MinimalReceiver {
         return abi.decode(rawContext, (uint256, address, uint256));
     }
 
+    /**
+     * @dev Executes a low-level call
+     */
     function _call(
         address to,
         uint256 value,

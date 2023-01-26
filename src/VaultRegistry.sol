@@ -78,6 +78,13 @@ contract VaultRegistry is Ownable2Step {
         return this.deployVault(block.chainid, tokenCollection, tokenId);
     }
 
+    /**
+     * @dev Enables or disables a trusted cross-chain executor.
+     *
+     * @param chainId the chainid of the network the executor exists on
+     * @param executor the address of the executor
+     * @param enabled true if executor should be enabled, false otherwise
+     */
     function setCrossChainExecutor(
         uint256 chainId,
         address executor,
