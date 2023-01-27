@@ -4,33 +4,35 @@ pragma solidity ^0.8.13;
 import "forge-std/Test.sol";
 
 import "../src/Account.sol";
-import "../src/VaultRegistry.sol";
+import "../src/AccountRegistry.sol";
 import "../src/lib/MinimalProxyStore.sol";
 
-contract VaultRegistryTest is Test {
-    VaultRegistry public vaultRegistry;
+contract AccountRegistryTest is Test {
+    AccountRegistry public accountRegistry;
 
     function setUp() public {
-        vaultRegistry = new VaultRegistry();
+        accountRegistry = new AccountRegistry();
     }
 
-    function testDeployVault(address tokenCollection, uint256 tokenId) public {
-        assertTrue(address(vaultRegistry) != address(0));
+    function testDeployAccount(address tokenCollection, uint256 tokenId)
+        public
+    {
+        assertTrue(address(accountRegistry) != address(0));
 
-        address predictedVaultAddress = vaultRegistry.vaultAddress(
+        address predictedAccountAddress = accountRegistry.accountAddress(
             tokenCollection,
             tokenId
         );
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             tokenCollection,
             tokenId
         );
 
-        assertTrue(vaultAddress != address(0));
-        assertTrue(vaultAddress == predictedVaultAddress);
+        assertTrue(accountAddress != address(0));
+        assertTrue(accountAddress == predictedAccountAddress);
         assertEq(
-            MinimalProxyStore.getContext(vaultAddress),
+            MinimalProxyStore.getContext(accountAddress),
             abi.encode(block.chainid, tokenCollection, tokenId)
         );
     }
@@ -39,33 +41,33 @@ contract VaultRegistryTest is Test {
         address crossChainExecutor = vm.addr(1);
         address notCrossChainExecutor = vm.addr(2);
 
-        vaultRegistry.setCrossChainExecutor(
+        accountRegistry.setCrossChainExecutor(
             block.chainid,
             crossChainExecutor,
             true
         );
 
         assertTrue(
-            vaultRegistry.isCrossChainExecutor(
+            accountRegistry.isCrossChainExecutor(
                 block.chainid,
                 crossChainExecutor
             )
         );
         assertEq(
-            vaultRegistry.isCrossChainExecutor(
+            accountRegistry.isCrossChainExecutor(
                 block.chainid,
                 notCrossChainExecutor
             ),
             false
         );
 
-        vaultRegistry.setCrossChainExecutor(
+        accountRegistry.setCrossChainExecutor(
             block.chainid,
             crossChainExecutor,
             false
         );
         assertEq(
-            vaultRegistry.isCrossChainExecutor(
+            accountRegistry.isCrossChainExecutor(
                 block.chainid,
                 crossChainExecutor
             ),

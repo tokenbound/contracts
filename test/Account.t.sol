@@ -7,7 +7,7 @@ import "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/proxy/Clones.sol";
 
 import "../src/Account.sol";
-import "../src/VaultRegistry.sol";
+import "../src/AccountRegistry.sol";
 
 import "./mocks/MockERC721.sol";
 import "./mocks/MockERC1155.sol";
@@ -20,7 +20,7 @@ contract AccountTest is Test {
     MockERC1155 public dummyERC1155;
     MockERC20 public dummyERC20;
 
-    VaultRegistry public vaultRegistry;
+    AccountRegistry public accountRegistry;
 
     MockERC721 public tokenCollection;
 
@@ -28,7 +28,7 @@ contract AccountTest is Test {
         dummyERC721 = new MockERC721();
         dummyERC1155 = new MockERC1155();
         dummyERC20 = new MockERC20();
-        vaultRegistry = new VaultRegistry();
+        accountRegistry = new AccountRegistry();
 
         tokenCollection = new MockERC721();
     }
@@ -38,40 +38,40 @@ contract AccountTest is Test {
         address user1 = vm.addr(1);
         vm.deal(user1, 0.2 ether);
 
-        // get address that vault will be deployed to (before token is minted)
-        address vaultAddress = vaultRegistry.vaultAddress(
+        // get address that account will be deployed to (before token is minted)
+        address accountAddress = accountRegistry.accountAddress(
             address(tokenCollection),
             tokenId
         );
 
-        // mint token for vault to user1
+        // mint token for account to user1
         tokenCollection.mint(user1, tokenId);
 
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        // send ETH from user1 to vault (prior to vault deployment)
+        // send ETH from user1 to account (prior to account deployment)
         vm.prank(user1);
-        (bool sent, ) = vaultAddress.call{value: 0.2 ether}("");
+        (bool sent, ) = accountAddress.call{value: 0.2 ether}("");
         assertTrue(sent);
 
-        assertEq(vaultAddress.balance, 0.2 ether);
+        assertEq(accountAddress.balance, 0.2 ether);
 
-        // deploy vault contract (from a different wallet)
-        address createdAccountInstance = vaultRegistry.deployAccount(
+        // deploy account contract (from a different wallet)
+        address createdAccountInstance = accountRegistry.deployAccount(
             address(tokenCollection),
             tokenId
         );
 
-        assertEq(vaultAddress, createdAccountInstance);
+        assertEq(accountAddress, createdAccountInstance);
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
-        // user1 executes transaction to send ETH from vault
+        // user1 executes transaction to send ETH from account
         vm.prank(user1);
-        vault.executeCall(payable(user1), 0.1 ether, "");
+        account.executeCall(payable(user1), 0.1 ether, "");
 
         // success!
-        assertEq(vaultAddress.balance, 0.1 ether);
+        assertEq(accountAddress.balance, 0.1 ether);
         assertEq(user1.balance, 0.1 ether);
     }
 
@@ -79,7 +79,7 @@ contract AccountTest is Test {
         address user1 = vm.addr(1);
         vm.deal(user1, 0.2 ether);
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             address(tokenCollection),
             tokenId
         );
@@ -89,24 +89,24 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         vm.prank(user1);
-        (bool sent, ) = vaultAddress.call{value: 0.2 ether}("");
+        (bool sent, ) = accountAddress.call{value: 0.2 ether}("");
         assertTrue(sent);
 
-        assertEq(vaultAddress.balance, 0.2 ether);
+        assertEq(accountAddress.balance, 0.2 ether);
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
         vm.prank(user1);
-        vault.executeCall(payable(user1), 0.1 ether, "");
+        account.executeCall(payable(user1), 0.1 ether, "");
 
-        assertEq(vaultAddress.balance, 0.1 ether);
+        assertEq(accountAddress.balance, 0.1 ether);
         assertEq(user1.balance, 0.1 ether);
     }
 
     function testTransferERC20PreDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address computedAccountInstance = vaultRegistry.vaultAddress(
+        address computedAccountInstance = accountRegistry.accountAddress(
             address(tokenCollection),
             tokenId
         );
@@ -118,12 +118,12 @@ contract AccountTest is Test {
 
         assertEq(dummyERC20.balanceOf(computedAccountInstance), 1 ether);
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             address(tokenCollection),
             tokenId
         );
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
         bytes memory erc20TransferCall = abi.encodeWithSignature(
             "transfer(address,uint256)",
@@ -131,16 +131,16 @@ contract AccountTest is Test {
             1 ether
         );
         vm.prank(user1);
-        vault.executeCall(payable(address(dummyERC20)), 0, erc20TransferCall);
+        account.executeCall(payable(address(dummyERC20)), 0, erc20TransferCall);
 
-        assertEq(dummyERC20.balanceOf(vaultAddress), 0);
+        assertEq(dummyERC20.balanceOf(accountAddress), 0);
         assertEq(dummyERC20.balanceOf(user1), 1 ether);
     }
 
     function testTransferERC20PostDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             address(tokenCollection),
             tokenId
         );
@@ -148,11 +148,11 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        dummyERC20.mint(vaultAddress, 1 ether);
+        dummyERC20.mint(accountAddress, 1 ether);
 
-        assertEq(dummyERC20.balanceOf(vaultAddress), 1 ether);
+        assertEq(dummyERC20.balanceOf(accountAddress), 1 ether);
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
         bytes memory erc20TransferCall = abi.encodeWithSignature(
             "transfer(address,uint256)",
@@ -160,16 +160,16 @@ contract AccountTest is Test {
             1 ether
         );
         vm.prank(user1);
-        vault.executeCall(payable(address(dummyERC20)), 0, erc20TransferCall);
+        account.executeCall(payable(address(dummyERC20)), 0, erc20TransferCall);
 
-        assertEq(dummyERC20.balanceOf(vaultAddress), 0);
+        assertEq(dummyERC20.balanceOf(accountAddress), 0);
         assertEq(dummyERC20.balanceOf(user1), 1 ether);
     }
 
     function testTransferERC1155PreDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address computedAccountInstance = vaultRegistry.vaultAddress(
+        address computedAccountInstance = accountRegistry.accountAddress(
             address(tokenCollection),
             tokenId
         );
@@ -181,36 +181,36 @@ contract AccountTest is Test {
 
         assertEq(dummyERC1155.balanceOf(computedAccountInstance, 1), 10);
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             address(tokenCollection),
             tokenId
         );
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
         bytes memory erc1155TransferCall = abi.encodeWithSignature(
             "safeTransferFrom(address,address,uint256,uint256,bytes)",
-            vaultAddress,
+            accountAddress,
             user1,
             1,
             10,
             ""
         );
         vm.prank(user1);
-        vault.executeCall(
+        account.executeCall(
             payable(address(dummyERC1155)),
             0,
             erc1155TransferCall
         );
 
-        assertEq(dummyERC1155.balanceOf(vaultAddress, 1), 0);
+        assertEq(dummyERC1155.balanceOf(accountAddress, 1), 0);
         assertEq(dummyERC1155.balanceOf(user1, 1), 10);
     }
 
     function testTransferERC1155PostDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             address(tokenCollection),
             tokenId
         );
@@ -218,35 +218,35 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        dummyERC1155.mint(vaultAddress, 1, 10);
+        dummyERC1155.mint(accountAddress, 1, 10);
 
-        assertEq(dummyERC1155.balanceOf(vaultAddress, 1), 10);
+        assertEq(dummyERC1155.balanceOf(accountAddress, 1), 10);
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
         bytes memory erc1155TransferCall = abi.encodeWithSignature(
             "safeTransferFrom(address,address,uint256,uint256,bytes)",
-            vaultAddress,
+            accountAddress,
             user1,
             1,
             10,
             ""
         );
         vm.prank(user1);
-        vault.executeCall(
+        account.executeCall(
             payable(address(dummyERC1155)),
             0,
             erc1155TransferCall
         );
 
-        assertEq(dummyERC1155.balanceOf(vaultAddress, 1), 0);
+        assertEq(dummyERC1155.balanceOf(accountAddress, 1), 0);
         assertEq(dummyERC1155.balanceOf(user1, 1), 10);
     }
 
     function testTransferERC721PreDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address computedAccountInstance = vaultRegistry.vaultAddress(
+        address computedAccountInstance = accountRegistry.accountAddress(
             address(tokenCollection),
             tokenId
         );
@@ -259,23 +259,27 @@ contract AccountTest is Test {
         assertEq(dummyERC721.balanceOf(computedAccountInstance), 1);
         assertEq(dummyERC721.ownerOf(1), computedAccountInstance);
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             address(tokenCollection),
             tokenId
         );
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
         bytes memory erc721TransferCall = abi.encodeWithSignature(
             "safeTransferFrom(address,address,uint256)",
-            address(vaultAddress),
+            address(accountAddress),
             user1,
             1
         );
         vm.prank(user1);
-        vault.executeCall(payable(address(dummyERC721)), 0, erc721TransferCall);
+        account.executeCall(
+            payable(address(dummyERC721)),
+            0,
+            erc721TransferCall
+        );
 
-        assertEq(dummyERC721.balanceOf(address(vaultAddress)), 0);
+        assertEq(dummyERC721.balanceOf(address(accountAddress)), 0);
         assertEq(dummyERC721.balanceOf(user1), 1);
         assertEq(dummyERC721.ownerOf(1), user1);
     }
@@ -283,7 +287,7 @@ contract AccountTest is Test {
     function testTransferERC721PostDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             address(tokenCollection),
             tokenId
         );
@@ -291,23 +295,27 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        dummyERC721.mint(vaultAddress, 1);
+        dummyERC721.mint(accountAddress, 1);
 
-        assertEq(dummyERC721.balanceOf(vaultAddress), 1);
-        assertEq(dummyERC721.ownerOf(1), vaultAddress);
+        assertEq(dummyERC721.balanceOf(accountAddress), 1);
+        assertEq(dummyERC721.ownerOf(1), accountAddress);
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
         bytes memory erc721TransferCall = abi.encodeWithSignature(
             "safeTransferFrom(address,address,uint256)",
-            vaultAddress,
+            accountAddress,
             user1,
             1
         );
         vm.prank(user1);
-        vault.executeCall(payable(address(dummyERC721)), 0, erc721TransferCall);
+        account.executeCall(
+            payable(address(dummyERC721)),
+            0,
+            erc721TransferCall
+        );
 
-        assertEq(dummyERC721.balanceOf(vaultAddress), 0);
+        assertEq(dummyERC721.balanceOf(accountAddress), 0);
         assertEq(dummyERC721.balanceOf(user1), 1);
         assertEq(dummyERC721.ownerOf(1), user1);
     }
@@ -319,29 +327,29 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             address(tokenCollection),
             tokenId
         );
 
-        vm.deal(vaultAddress, 1 ether);
+        vm.deal(accountAddress, 1 ether);
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
-        // should fail if user2 tries to use vault
+        // should fail if user2 tries to use account
         vm.prank(user2);
         vm.expectRevert(Account.NotAuthorized.selector);
-        vault.executeCall(payable(user2), 0.1 ether, "");
+        account.executeCall(payable(user2), 0.1 ether, "");
 
         // should fail if user2 tries to set executor
         vm.prank(user2);
         vm.expectRevert(Account.NotAuthorized.selector);
-        vault.setExecutor(vm.addr(1337));
+        account.setExecutor(vm.addr(1337));
 
-        // should fail if user2 tries to lock vault
+        // should fail if user2 tries to lock account
         vm.prank(user2);
         vm.expectRevert(Account.NotAuthorized.selector);
-        vault.lock(364 days);
+        account.lock(364 days);
     }
 
     function testAccountOwnershipTransfer(uint256 tokenId) public {
@@ -351,26 +359,26 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             address(tokenCollection),
             tokenId
         );
 
-        vm.deal(vaultAddress, 1 ether);
+        vm.deal(accountAddress, 1 ether);
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
-        // should fail if user2 tries to use vault
+        // should fail if user2 tries to use account
         vm.prank(user2);
         vm.expectRevert(Account.NotAuthorized.selector);
-        vault.executeCall(payable(user2), 0.1 ether, "");
+        account.executeCall(payable(user2), 0.1 ether, "");
 
         vm.prank(user1);
         tokenCollection.safeTransferFrom(user1, user2, tokenId);
 
         // should succeed now that user2 is owner
         vm.prank(user2);
-        vault.executeCall(payable(user2), 0.1 ether, "");
+        account.executeCall(payable(user2), 0.1 ether, "");
 
         assertEq(user2.balance, 0.1 ether);
     }
@@ -383,19 +391,19 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             address(tokenCollection),
             tokenId
         );
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
         bytes32 hash = keccak256("This is a signed message");
         (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(1, hash);
 
         bytes memory signature1 = abi.encodePacked(r1, s1, v1);
 
-        bytes4 returnValue1 = vault.isValidSignature(hash, signature1);
+        bytes4 returnValue1 = account.isValidSignature(hash, signature1);
 
         assertEq(returnValue1, IERC1271.isValidSignature.selector);
     }
@@ -408,19 +416,19 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             address(tokenCollection),
             tokenId
         );
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
         bytes32 hash = keccak256("This is a signed message");
 
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(2, hash);
         bytes memory signature2 = abi.encodePacked(r2, s2, v2);
 
-        bytes4 returnValue2 = vault.isValidSignature(hash, signature2);
+        bytes4 returnValue2 = account.isValidSignature(hash, signature2);
 
         assertEq(returnValue2, 0);
     }
@@ -431,36 +439,36 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             address(tokenCollection),
             tokenId
         );
 
-        vm.deal(vaultAddress, 1 ether);
+        vm.deal(accountAddress, 1 ether);
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
         // cannot be locked for more than 365 days
         vm.prank(user1);
         vm.expectRevert(Account.ExceedsMaxLockTime.selector);
-        vault.lock(366 days);
+        account.lock(366 days);
 
-        // lock vault for 10 days
+        // lock account for 10 days
         uint256 unlockTimestamp = block.timestamp + 10 days;
         vm.prank(user1);
-        vault.lock(unlockTimestamp);
+        account.lock(unlockTimestamp);
 
-        assertEq(vault.isLocked(), true);
+        assertEq(account.isLocked(), true);
 
-        // transaction should revert if vault is locked
+        // transaction should revert if account is locked
         vm.prank(user1);
         vm.expectRevert(Account.AccountLocked.selector);
-        vault.executeCall(payable(user1), 1 ether, "");
+        account.executeCall(payable(user1), 1 ether, "");
 
-        // fallback calls should revert if vault is locked
+        // fallback calls should revert if account is locked
         vm.prank(user1);
         vm.expectRevert(Account.AccountLocked.selector);
-        (bool success, bytes memory result) = vaultAddress.call(
+        (bool success, bytes memory result) = accountAddress.call(
             abi.encodeWithSignature("customFunction()")
         );
 
@@ -468,36 +476,36 @@ contract AccountTest is Test {
         success;
         result;
 
-        // setExecutor calls should revert if vault is locked
+        // setExecutor calls should revert if account is locked
         vm.prank(user1);
         vm.expectRevert(Account.AccountLocked.selector);
-        vault.setExecutor(vm.addr(1337));
+        account.setExecutor(vm.addr(1337));
 
-        // lock calls should revert if vault is locked
+        // lock calls should revert if account is locked
         vm.prank(user1);
         vm.expectRevert(Account.AccountLocked.selector);
-        vault.lock(0);
+        account.lock(0);
 
-        // signing should fail if vault is locked
+        // signing should fail if account is locked
         bytes32 hash = keccak256("This is a signed message");
         (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(2, hash);
         bytes memory signature1 = abi.encodePacked(r1, s1, v1);
-        bytes4 returnValue = vault.isValidSignature(hash, signature1);
+        bytes4 returnValue = account.isValidSignature(hash, signature1);
         assertEq(returnValue, 0);
 
-        // warp to timestamp after vault is unlocked
+        // warp to timestamp after account is unlocked
         vm.warp(unlockTimestamp + 1 days);
 
-        // transaction succeed now that vault lock has expired
+        // transaction succeed now that account lock has expired
         vm.prank(user1);
-        vault.executeCall(payable(user1), 1 ether, "");
+        account.executeCall(payable(user1), 1 ether, "");
         assertEq(user1.balance, 1 ether);
 
-        // signing should now that vault lock has expired
+        // signing should now that account lock has expired
         bytes32 hashAfterUnlock = keccak256("This is a signed message");
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(1, hashAfterUnlock);
         bytes memory signature2 = abi.encodePacked(r2, s2, v2);
-        bytes4 returnValue1 = vault.isValidSignature(
+        bytes4 returnValue1 = account.isValidSignature(
             hashAfterUnlock,
             signature2
         );
@@ -510,19 +518,19 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             address(tokenCollection),
             tokenId
         );
 
-        vm.deal(vaultAddress, 1 ether);
+        vm.deal(accountAddress, 1 ether);
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
         MockExecutor mockExecutor = new MockExecutor();
 
         // calls succeed with noop if executor is undefined
-        (bool success, bytes memory result) = vaultAddress.call(
+        (bool success, bytes memory result) = accountAddress.call(
             abi.encodeWithSignature("customFunction()")
         );
         assertEq(success, true);
@@ -530,33 +538,33 @@ contract AccountTest is Test {
 
         // calls succeed with noop if executor is EOA
         vm.prank(user1);
-        vault.setExecutor(vm.addr(1337));
-        (bool success1, bytes memory result1) = vaultAddress.call(
+        account.setExecutor(vm.addr(1337));
+        (bool success1, bytes memory result1) = accountAddress.call(
             abi.encodeWithSignature("customFunction()")
         );
         assertEq(success1, true);
         assertEq(result1, "");
 
-        assertEq(vault.isAuthorized(user1), true);
-        assertEq(vault.isAuthorized(address(mockExecutor)), false);
+        assertEq(account.isAuthorized(user1), true);
+        assertEq(account.isAuthorized(address(mockExecutor)), false);
 
         vm.prank(user1);
-        vault.setExecutor(address(mockExecutor));
+        account.setExecutor(address(mockExecutor));
 
-        assertEq(vault.isAuthorized(user1), true);
-        assertEq(vault.isAuthorized(address(mockExecutor)), true);
+        assertEq(account.isAuthorized(user1), true);
+        assertEq(account.isAuthorized(address(mockExecutor)), true);
 
         assertEq(
-            vault.isValidSignature(bytes32(0), ""),
+            account.isValidSignature(bytes32(0), ""),
             IERC1271.isValidSignature.selector
         );
 
         // execution module handles fallback calls
-        assertEq(MockExecutor(vaultAddress).customFunction(), 12345);
+        assertEq(MockExecutor(accountAddress).customFunction(), 12345);
 
         // execution bubbles up errors on revert
         vm.expectRevert(MockReverter.MockError.selector);
-        MockExecutor(vaultAddress).fail();
+        MockExecutor(accountAddress).fail();
     }
 
     function testCustomExecutorCalls(uint256 tokenId) public {
@@ -566,24 +574,24 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             address(tokenCollection),
             tokenId
         );
 
-        vm.deal(vaultAddress, 1 ether);
+        vm.deal(accountAddress, 1 ether);
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
-        assertEq(vault.isAuthorized(user2), false);
+        assertEq(account.isAuthorized(user2), false);
 
         vm.prank(user1);
-        vault.setExecutor(user2);
+        account.setExecutor(user2);
 
-        assertEq(vault.isAuthorized(user2), true);
+        assertEq(account.isAuthorized(user2), true);
 
         vm.prank(user2);
-        vault.executeTrustedCall(user2, 0.1 ether, "");
+        account.executeTrustedCall(user2, 0.1 ether, "");
 
         assertEq(user2.balance, 0.1 ether);
     }
@@ -598,31 +606,35 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             chainId,
             address(tokenCollection),
             tokenId
         );
 
-        vm.deal(vaultAddress, 1 ether);
+        vm.deal(accountAddress, 1 ether);
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
-        assertEq(vault.isAuthorized(crossChainExecutor), false);
+        assertEq(account.isAuthorized(crossChainExecutor), false);
 
-        vaultRegistry.setCrossChainExecutor(chainId, crossChainExecutor, true);
+        accountRegistry.setCrossChainExecutor(
+            chainId,
+            crossChainExecutor,
+            true
+        );
 
-        assertEq(vault.isAuthorized(crossChainExecutor), true);
+        assertEq(account.isAuthorized(crossChainExecutor), true);
 
         vm.prank(crossChainExecutor);
-        vault.executeCrossChainCall(user1, 0.1 ether, "");
+        account.executeCrossChainCall(user1, 0.1 ether, "");
 
         assertEq(user1.balance, 0.1 ether);
 
         address notCrossChainExecutor = vm.addr(3);
         vm.prank(notCrossChainExecutor);
         vm.expectRevert(Account.NotAuthorized.selector);
-        Account(payable(vaultAddress)).executeCrossChainCall(
+        Account(payable(accountAddress)).executeCrossChainCall(
             user1,
             0.1 ether,
             ""
@@ -630,7 +642,7 @@ contract AccountTest is Test {
 
         assertEq(user1.balance, 0.1 ether);
 
-        address nativeAccountAddress = vaultRegistry.deployAccount(
+        address nativeAccountAddress = accountRegistry.deployAccount(
             block.chainid,
             address(tokenCollection),
             tokenId
@@ -653,20 +665,20 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             address(tokenCollection),
             tokenId
         );
 
-        vm.deal(vaultAddress, 1 ether);
+        vm.deal(accountAddress, 1 ether);
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
         MockReverter mockReverter = new MockReverter();
 
         vm.prank(user1);
         vm.expectRevert(MockReverter.MockError.selector);
-        vault.executeCall(
+        account.executeCall(
             payable(address(mockReverter)),
             0,
             abi.encodeWithSignature("fail()")
@@ -674,11 +686,11 @@ contract AccountTest is Test {
     }
 
     function testAccountOwnerIsNullIfContextNotSet() public {
-        address vaultClone = Clones.clone(
-            vaultRegistry.defaultImplementation()
+        address accountClone = Clones.clone(
+            accountRegistry.defaultImplementation()
         );
 
-        assertEq(Account(payable(vaultClone)).owner(), address(0));
+        assertEq(Account(payable(accountClone)).owner(), address(0));
     }
 
     function testEIP165Support() public {
@@ -688,33 +700,33 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address vaultAddress = vaultRegistry.deployAccount(
+        address accountAddress = accountRegistry.deployAccount(
             address(tokenCollection),
             tokenId
         );
 
-        vm.deal(vaultAddress, 1 ether);
+        vm.deal(accountAddress, 1 ether);
 
-        Account vault = Account(payable(vaultAddress));
+        Account account = Account(payable(accountAddress));
 
-        assertEq(vault.supportsInterface(type(IAccount).interfaceId), true);
+        assertEq(account.supportsInterface(type(IAccount).interfaceId), true);
         assertEq(
-            vault.supportsInterface(type(IERC1155Receiver).interfaceId),
+            account.supportsInterface(type(IERC1155Receiver).interfaceId),
             true
         );
-        assertEq(vault.supportsInterface(type(IERC165).interfaceId), true);
+        assertEq(account.supportsInterface(type(IERC165).interfaceId), true);
         assertEq(
-            vault.supportsInterface(IERC1271.isValidSignature.selector),
+            account.supportsInterface(IERC1271.isValidSignature.selector),
             false
         );
 
         MockExecutor mockExecutor = new MockExecutor();
 
         vm.prank(user1);
-        vault.setExecutor(address(mockExecutor));
+        account.setExecutor(address(mockExecutor));
 
         assertEq(
-            vault.supportsInterface(IERC1271.isValidSignature.selector),
+            account.supportsInterface(IERC1271.isValidSignature.selector),
             true
         );
     }

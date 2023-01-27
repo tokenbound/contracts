@@ -8,7 +8,7 @@ import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 import "openzeppelin-contracts/utils/introspection/IERC165.sol";
 import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
 
-import "./VaultRegistry.sol";
+import "./AccountRegistry.sol";
 import "./MinimalReceiver.sol";
 import "./interfaces/IAccount.sol";
 import "./lib/MinimalProxyStore.sol";
@@ -22,7 +22,7 @@ contract Account is IAccount, MinimalReceiver {
     error AccountLocked();
     error ExceedsMaxLockTime();
 
-    VaultRegistry public immutable registry = VaultRegistry(msg.sender);
+    AccountRegistry public immutable registry = AccountRegistry(msg.sender);
 
     /**
      * @dev Timestamp at which Account will unlock

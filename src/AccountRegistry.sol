@@ -7,13 +7,13 @@ import "./Account.sol";
 import "./lib/MinimalProxyStore.sol";
 
 /**
- * @title A registry for tokenbound Vaults
- * @dev Determines the address for each tokenbound Vault and performs deployment of vault instances
+ * @title A registry for tokenbound Accounts
+ * @dev Determines the address for each tokenbound Account and performs deployment of vault instances
  * @author Jayden Windle (jaydenwindle)
  */
-contract VaultRegistry is Ownable2Step {
+contract AccountRegistry is Ownable2Step {
     error NotAuthorized();
-    error VaultLocked();
+    error AccountLocked();
 
     /**
      * @dev Address of the default vault implementation
@@ -25,22 +25,27 @@ contract VaultRegistry is Ownable2Step {
     /**
      * @dev Emitted whenever a vault is created
      */
-    event VaultCreated(address vault, address tokenCollection, uint256 tokenId);
+    event AccountCreated(
+        address account,
+        uint256 chainId,
+        address tokenCollection,
+        uint256 tokenId
+    );
 
     /**
-     * @dev Deploys the default Vault implementation
+     * @dev Deploys the default Account implementation
      */
     constructor() {
         defaultImplementation = address(new Account());
     }
 
     /**
-     * @dev Deploys the Vault instance for an ERC721 token. Will revert if Vault has already been deployed
+     * @dev Deploys the Account instance for an ERC721 token. Will revert if Account has already been deployed
      *
      * @param chainId the chainid of the network the ERC721 token exists on
-     * @param tokenCollection the contract address of the ERC721 token which will control the deployed Vault
-     * @param tokenId the token ID of the ERC721 token which will control the deployed Vault
-     * @return The address of the deployed Vault
+     * @param tokenCollection the contract address of the ERC721 token which will control the deployed Account
+     * @param tokenId the token ID of the ERC721 token which will control the deployed Account
+     * @return The address of the deployed Account
      */
     function deployAccount(
         uint256 chainId,
@@ -59,17 +64,17 @@ contract VaultRegistry is Ownable2Step {
             salt
         );
 
-        emit VaultCreated(vaultProxy, tokenCollection, tokenId);
+        emit AccountCreated(vaultProxy, chainId, tokenCollection, tokenId);
 
         return vaultProxy;
     }
 
     /**
-     * @dev Deploys the Vault instance for an ERC721 token. Will revert if Vault has already been deployed
+     * @dev Deploys the Account instance for an ERC721 token. Will revert if Account has already been deployed
      *
-     * @param tokenCollection the contract address of the ERC721 token which will control the deployed Vault
-     * @param tokenId the token ID of the ERC721 token which will control the deployed Vault
-     * @return The address of the deployed Vault
+     * @param tokenCollection the contract address of the ERC721 token which will control the deployed Account
+     * @param tokenId the token ID of the ERC721 token which will control the deployed Account
+     * @return The address of the deployed Account
      */
     function deployAccount(address tokenCollection, uint256 tokenId)
         external
@@ -94,15 +99,15 @@ contract VaultRegistry is Ownable2Step {
     }
 
     /**
-     * @dev Gets the address of the VaultProxy for an ERC721 token. If VaultProxy is
+     * @dev Gets the address of the AccountProxy for an ERC721 token. If AccountProxy is
      * not yet deployed, returns the address it will be deployed to
      *
      * @param chainId the chainid of the network the ERC721 token exists on
      * @param tokenCollection the address of the ERC721 token contract
      * @param tokenId the tokenId of the ERC721 token that controls the vault
-     * @return The VaultProxy address
+     * @return The AccountProxy address
      */
-    function vaultAddress(
+    function accountAddress(
         uint256 chainId,
         address tokenCollection,
         uint256 tokenId
@@ -124,18 +129,18 @@ contract VaultRegistry is Ownable2Step {
     }
 
     /**
-     * @dev Gets the address of the VaultProxy for an ERC721 token. If VaultProxy is
+     * @dev Gets the address of the AccountProxy for an ERC721 token. If AccountProxy is
      * not yet deployed, returns the address it will be deployed to
      *
      * @param tokenCollection the address of the ERC721 token contract
      * @param tokenId the tokenId of the ERC721 token that controls the vault
-     * @return The VaultProxy address
+     * @return The AccountProxy address
      */
-    function vaultAddress(address tokenCollection, uint256 tokenId)
+    function accountAddress(address tokenCollection, uint256 tokenId)
         external
         view
         returns (address)
     {
-        return this.vaultAddress(block.chainid, tokenCollection, tokenId);
+        return this.accountAddress(block.chainid, tokenCollection, tokenId);
     }
 }
