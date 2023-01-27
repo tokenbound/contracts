@@ -34,4 +34,42 @@ contract VaultRegistryTest is Test {
             abi.encode(block.chainid, tokenCollection, tokenId)
         );
     }
+
+    function testSetCrossChainExecutor() public {
+        address crossChainExecutor = vm.addr(1);
+        address notCrossChainExecutor = vm.addr(2);
+
+        vaultRegistry.setCrossChainExecutor(
+            block.chainid,
+            crossChainExecutor,
+            true
+        );
+
+        assertTrue(
+            vaultRegistry.isCrossChainExecutor(
+                block.chainid,
+                crossChainExecutor
+            )
+        );
+        assertEq(
+            vaultRegistry.isCrossChainExecutor(
+                block.chainid,
+                notCrossChainExecutor
+            ),
+            false
+        );
+
+        vaultRegistry.setCrossChainExecutor(
+            block.chainid,
+            crossChainExecutor,
+            false
+        );
+        assertEq(
+            vaultRegistry.isCrossChainExecutor(
+                block.chainid,
+                crossChainExecutor
+            ),
+            false
+        );
+    }
 }

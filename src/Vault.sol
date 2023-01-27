@@ -8,6 +8,7 @@ import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 import "openzeppelin-contracts/utils/introspection/IERC165.sol";
 import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
 
+import "./VaultRegistry.sol";
 import "./MinimalReceiver.sol";
 import "./interfaces/IVault.sol";
 import "./lib/MinimalProxyStore.sol";
@@ -21,6 +22,8 @@ contract Vault is IVault, MinimalReceiver {
     error VaultLocked();
     error ExceedsMaxLockTime();
 
+    VaultRegistry public immutable registry = VaultRegistry(msg.sender);
+
     /**
      * @dev Timestamp at which Vault will unlock
      */
@@ -31,11 +34,6 @@ contract Vault is IVault, MinimalReceiver {
      */
     mapping(address => address) public executor;
 
-    modifier onlyUnlocked() {
-        if (unlockTimestamp > block.timestamp) revert VaultLocked();
-        _;
-    }
-
     /**
      * @dev Emitted whenever the lock status of a vault is updated
      */
@@ -45,6 +43,14 @@ contract Vault is IVault, MinimalReceiver {
      * @dev Emitted whenever the executor for a vault is updated
      */
     event ExecutorUpdated(address owner, address executor);
+
+    /**
+     * @dev Ensures execution can only continue if the vault is not locked
+     */
+    modifier onlyUnlocked() {
+        if (unlockTimestamp > block.timestamp) revert VaultLocked();
+        _;
+    }
 
     /**
      * @dev If vault is unlocked and an executor is set, pass call to executor
@@ -59,21 +65,13 @@ contract Vault is IVault, MinimalReceiver {
         address _executor = executor[_owner];
 
         // accept funds if executor is undefined or cannot be called
-        if (_executor == address(0)) return "";
         if (_executor.code.length == 0) return "";
 
-        bool success;
-        (success, result) = _executor.call(data);
-
-        if (!success) {
-            assembly {
-                revert(add(result, 32), mload(result))
-            }
-        }
+        return _call(_executor, 0, data);
     }
 
     /**
-     * @dev Executes a transaction from the Vault. Must be called by an authorized sender.
+     * @dev Executes a transaction from the Vault. Must be called by an vault owner.
      *
      * @param to      Destination address of the transaction
      * @param value   Ether value of the transaction
@@ -84,16 +82,54 @@ contract Vault is IVault, MinimalReceiver {
         uint256 value,
         bytes calldata data
     ) external payable onlyUnlocked returns (bytes memory result) {
-        if (!isOwnerOrExecutor(msg.sender)) revert NotAuthorized();
+        address _owner = owner();
+        if (msg.sender != _owner) revert NotAuthorized();
 
-        bool success;
-        (success, result) = to.call{value: value}(data);
+        return _call(to, value, data);
+    }
 
-        if (!success) {
-            assembly {
-                revert(add(result, 32), mload(result))
-            }
+    /**
+     * @dev Executes a transaction from the Vault. Must be called by an authorized executor.
+     *
+     * @param to      Destination address of the transaction
+     * @param value   Ether value of the transaction
+     * @param data    Encoded payload of the transaction
+     */
+    function executeTrustedCall(
+        address to,
+        uint256 value,
+        bytes calldata data
+    ) external payable onlyUnlocked returns (bytes memory result) {
+        address _executor = executor[owner()];
+        if (msg.sender != _executor) revert NotAuthorized();
+
+        return _call(to, value, data);
+    }
+
+    /**
+     * @dev Executes a transaction from the Vault. Must be called by a trusted cross-chain executor.
+     * Can only be called if vault is owned by a token on another chain.
+     *
+     * @param to      Destination address of the transaction
+     * @param value   Ether value of the transaction
+     * @param data    Encoded payload of the transaction
+     */
+    function executeCrossChainCall(
+        address to,
+        uint256 value,
+        bytes calldata data
+    ) external payable onlyUnlocked returns (bytes memory result) {
+        (uint256 chainId, , ) = context();
+
+        if (chainId == block.chainid) {
+            revert NotAuthorized();
         }
+
+        if (!registry.isCrossChainExecutor(chainId, msg.sender)) {
+            revert NotAuthorized();
+        }
+
+        return _call(to, value, data);
     }
 
     /**
@@ -144,7 +180,19 @@ contract Vault is IVault, MinimalReceiver {
      * @return true if caller is authorized, false otherwise
      */
     function isAuthorized(address caller) external view returns (bool) {
-        return isOwnerOrExecutor(caller);
+        (uint256 chainId, address tokenCollection, uint256 tokenId) = context();
+
+        if (chainId != block.chainid) {
+            return registry.isCrossChainExecutor(chainId, caller);
+        }
+
+        address _owner = IERC721(tokenCollection).ownerOf(tokenId);
+        if (caller == _owner) return true;
+
+        address _executor = executor[_owner];
+        if (caller == _executor) return true;
+
+        return false;
     }
 
     /**
@@ -180,6 +228,12 @@ contract Vault is IVault, MinimalReceiver {
         return "";
     }
 
+    /**
+     * @dev Implements EIP-165 standard interface detection
+     *
+     * @param interfaceId the interfaceId to check support for
+     * @return true if the interface is supported, false otherwise
+     */
     function supportsInterface(bytes4 interfaceId)
         public
         view
@@ -196,8 +250,20 @@ contract Vault is IVault, MinimalReceiver {
             return true;
         }
 
+        address _executor = executor[owner()];
+
+        if (_executor == address(0) || _executor.code.length == 0) {
+            return false;
+        }
+
         // if interface is not supported by default, check executor
-        return IERC165(executor[owner()]).supportsInterface(interfaceId);
+        try IERC165(_executor).supportsInterface(interfaceId) returns (
+            bool _supportsInterface
+        ) {
+            return _supportsInterface;
+        } catch {
+            return false;
+        }
     }
 
     /**
@@ -206,12 +272,7 @@ contract Vault is IVault, MinimalReceiver {
      * @return the address of the Vault owner
      */
     function owner() public view returns (address) {
-        bytes memory context = MinimalProxyStore.getContext(address(this));
-
-        if (context.length == 0) return address(0);
-
-        (uint256 chainId, address tokenCollection, uint256 tokenId) = abi
-            .decode(context, (uint256, address, uint256));
+        (uint256 chainId, address tokenCollection, uint256 tokenId) = context();
 
         if (chainId != block.chainid) {
             return address(0);
@@ -221,18 +282,42 @@ contract Vault is IVault, MinimalReceiver {
     }
 
     /**
-     * @dev Returns true if caller is owner or ececutor
+     * @dev Returns the stored vault context
      *
-     * @param caller the address to query for
-     * @return true if caller is owner or executor, false otherwise
+     * @return chainId the chainId of the ERC721 token which owns this vaule
+     * @return tokenCollection the contract address of the  ERC721 token which owns this vaule
+     * @return tokenId the tokenId of the  ERC721 token which owns this vaule
      */
-    function isOwnerOrExecutor(address caller) internal view returns (bool) {
-        address _owner = owner();
-        if (caller == _owner) return true;
+    function context()
+        public
+        view
+        returns (
+            uint256 chainId,
+            address tokenCollection,
+            uint256 tokenId
+        )
+    {
+        bytes memory rawContext = MinimalProxyStore.getContext(address(this));
+        if (rawContext.length == 0) return (0, address(0), 0);
 
-        address _executor = executor[_owner];
-        if (caller == _executor) return true;
+        return abi.decode(rawContext, (uint256, address, uint256));
+    }
 
-        return false;
+    /**
+     * @dev Executes a low-level call
+     */
+    function _call(
+        address to,
+        uint256 value,
+        bytes calldata data
+    ) internal returns (bytes memory result) {
+        bool success;
+        (success, result) = to.call{value: value}(data);
+
+        if (!success) {
+            assembly {
+                revert(add(result, 32), mload(result))
+            }
+        }
     }
 }
