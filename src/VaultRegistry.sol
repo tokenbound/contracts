@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import "openzeppelin-contracts/access/Ownable2Step.sol";
 
-import "./Vault.sol";
+import "./Account.sol";
 import "./lib/MinimalProxyStore.sol";
 
 /**
@@ -18,7 +18,7 @@ contract VaultRegistry is Ownable2Step {
     /**
      * @dev Address of the default vault implementation
      */
-    address public immutable vaultImplementation;
+    address public immutable defaultImplementation;
 
     mapping(uint256 => mapping(address => bool)) public isCrossChainExecutor;
 
@@ -31,7 +31,7 @@ contract VaultRegistry is Ownable2Step {
      * @dev Deploys the default Vault implementation
      */
     constructor() {
-        vaultImplementation = address(new Vault());
+        defaultImplementation = address(new Account());
     }
 
     /**
@@ -42,7 +42,7 @@ contract VaultRegistry is Ownable2Step {
      * @param tokenId the token ID of the ERC721 token which will control the deployed Vault
      * @return The address of the deployed Vault
      */
-    function deployVault(
+    function deployAccount(
         uint256 chainId,
         address tokenCollection,
         uint256 tokenId
@@ -54,7 +54,7 @@ contract VaultRegistry is Ownable2Step {
         );
         bytes32 salt = keccak256(encodedTokenData);
         address vaultProxy = MinimalProxyStore.cloneDeterministic(
-            vaultImplementation,
+            defaultImplementation,
             encodedTokenData,
             salt
         );
@@ -71,11 +71,11 @@ contract VaultRegistry is Ownable2Step {
      * @param tokenId the token ID of the ERC721 token which will control the deployed Vault
      * @return The address of the deployed Vault
      */
-    function deployVault(address tokenCollection, uint256 tokenId)
+    function deployAccount(address tokenCollection, uint256 tokenId)
         external
         returns (address)
     {
-        return this.deployVault(block.chainid, tokenCollection, tokenId);
+        return this.deployAccount(block.chainid, tokenCollection, tokenId);
     }
 
     /**
@@ -115,7 +115,7 @@ contract VaultRegistry is Ownable2Step {
         bytes32 salt = keccak256(encodedTokenData);
 
         address vaultProxy = MinimalProxyStore.predictDeterministicAddress(
-            vaultImplementation,
+            defaultImplementation,
             encodedTokenData,
             salt
         );

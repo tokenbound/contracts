@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 
-import "../src/Vault.sol";
+import "../src/Account.sol";
 import "../src/VaultRegistry.sol";
 import "../src/lib/MinimalProxyStore.sol";
 
@@ -22,7 +22,7 @@ contract VaultRegistryTest is Test {
             tokenId
         );
 
-        address vaultAddress = vaultRegistry.deployVault(
+        address vaultAddress = vaultRegistry.deployAccount(
             tokenCollection,
             tokenId
         );
