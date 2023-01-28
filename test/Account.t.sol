@@ -39,7 +39,7 @@ contract AccountTest is Test {
         vm.deal(user1, 0.2 ether);
 
         // get address that account will be deployed to (before token is minted)
-        address accountAddress = accountRegistry.accountAddress(
+        address accountAddress = accountRegistry.account(
             address(tokenCollection),
             tokenId
         );
@@ -57,7 +57,7 @@ contract AccountTest is Test {
         assertEq(accountAddress.balance, 0.2 ether);
 
         // deploy account contract (from a different wallet)
-        address createdAccountInstance = accountRegistry.deployAccount(
+        address createdAccountInstance = accountRegistry.createAccount(
             address(tokenCollection),
             tokenId
         );
@@ -79,7 +79,7 @@ contract AccountTest is Test {
         address user1 = vm.addr(1);
         vm.deal(user1, 0.2 ether);
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             address(tokenCollection),
             tokenId
         );
@@ -106,7 +106,7 @@ contract AccountTest is Test {
     function testTransferERC20PreDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address computedAccountInstance = accountRegistry.accountAddress(
+        address computedAccountInstance = accountRegistry.account(
             address(tokenCollection),
             tokenId
         );
@@ -118,7 +118,7 @@ contract AccountTest is Test {
 
         assertEq(dummyERC20.balanceOf(computedAccountInstance), 1 ether);
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             address(tokenCollection),
             tokenId
         );
@@ -140,7 +140,7 @@ contract AccountTest is Test {
     function testTransferERC20PostDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             address(tokenCollection),
             tokenId
         );
@@ -169,7 +169,7 @@ contract AccountTest is Test {
     function testTransferERC1155PreDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address computedAccountInstance = accountRegistry.accountAddress(
+        address computedAccountInstance = accountRegistry.account(
             address(tokenCollection),
             tokenId
         );
@@ -181,7 +181,7 @@ contract AccountTest is Test {
 
         assertEq(dummyERC1155.balanceOf(computedAccountInstance, 1), 10);
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             address(tokenCollection),
             tokenId
         );
@@ -190,7 +190,7 @@ contract AccountTest is Test {
 
         bytes memory erc1155TransferCall = abi.encodeWithSignature(
             "safeTransferFrom(address,address,uint256,uint256,bytes)",
-            accountAddress,
+            account,
             user1,
             1,
             10,
@@ -210,7 +210,7 @@ contract AccountTest is Test {
     function testTransferERC1155PostDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             address(tokenCollection),
             tokenId
         );
@@ -226,7 +226,7 @@ contract AccountTest is Test {
 
         bytes memory erc1155TransferCall = abi.encodeWithSignature(
             "safeTransferFrom(address,address,uint256,uint256,bytes)",
-            accountAddress,
+            account,
             user1,
             1,
             10,
@@ -246,7 +246,7 @@ contract AccountTest is Test {
     function testTransferERC721PreDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address computedAccountInstance = accountRegistry.accountAddress(
+        address computedAccountInstance = accountRegistry.account(
             address(tokenCollection),
             tokenId
         );
@@ -259,7 +259,7 @@ contract AccountTest is Test {
         assertEq(dummyERC721.balanceOf(computedAccountInstance), 1);
         assertEq(dummyERC721.ownerOf(1), computedAccountInstance);
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             address(tokenCollection),
             tokenId
         );
@@ -268,7 +268,7 @@ contract AccountTest is Test {
 
         bytes memory erc721TransferCall = abi.encodeWithSignature(
             "safeTransferFrom(address,address,uint256)",
-            address(accountAddress),
+            accountAddress,
             user1,
             1
         );
@@ -279,7 +279,7 @@ contract AccountTest is Test {
             erc721TransferCall
         );
 
-        assertEq(dummyERC721.balanceOf(address(accountAddress)), 0);
+        assertEq(dummyERC721.balanceOf(address(account)), 0);
         assertEq(dummyERC721.balanceOf(user1), 1);
         assertEq(dummyERC721.ownerOf(1), user1);
     }
@@ -287,7 +287,7 @@ contract AccountTest is Test {
     function testTransferERC721PostDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             address(tokenCollection),
             tokenId
         );
@@ -304,7 +304,7 @@ contract AccountTest is Test {
 
         bytes memory erc721TransferCall = abi.encodeWithSignature(
             "safeTransferFrom(address,address,uint256)",
-            accountAddress,
+            account,
             user1,
             1
         );
@@ -327,7 +327,7 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             address(tokenCollection),
             tokenId
         );
@@ -359,7 +359,7 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             address(tokenCollection),
             tokenId
         );
@@ -391,7 +391,7 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             address(tokenCollection),
             tokenId
         );
@@ -416,7 +416,7 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             address(tokenCollection),
             tokenId
         );
@@ -439,7 +439,7 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             address(tokenCollection),
             tokenId
         );
@@ -518,7 +518,7 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             address(tokenCollection),
             tokenId
         );
@@ -574,7 +574,7 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             address(tokenCollection),
             tokenId
         );
@@ -606,7 +606,7 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             chainId,
             address(tokenCollection),
             tokenId
@@ -618,7 +618,13 @@ contract AccountTest is Test {
 
         assertEq(account.isAuthorized(crossChainExecutor), false);
 
-        accountRegistry.setCrossChainExecutor(
+        // TODO: gross, fix deployments
+        address crossChainExecutorList = address(
+            Account(payable(accountRegistry.defaultImplementation()))
+                .crossChainExecutorList()
+        );
+        vm.prank(address(accountRegistry));
+        CrossChainExecutorList(crossChainExecutorList).setCrossChainExecutor(
             chainId,
             crossChainExecutor,
             true
@@ -634,15 +640,11 @@ contract AccountTest is Test {
         address notCrossChainExecutor = vm.addr(3);
         vm.prank(notCrossChainExecutor);
         vm.expectRevert(Account.NotAuthorized.selector);
-        Account(payable(accountAddress)).executeCrossChainCall(
-            user1,
-            0.1 ether,
-            ""
-        );
+        Account(payable(account)).executeCrossChainCall(user1, 0.1 ether, "");
 
         assertEq(user1.balance, 0.1 ether);
 
-        address nativeAccountAddress = accountRegistry.deployAccount(
+        address nativeAccountAddress = accountRegistry.createAccount(
             block.chainid,
             address(tokenCollection),
             tokenId
@@ -665,7 +667,7 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             address(tokenCollection),
             tokenId
         );
@@ -700,7 +702,7 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             address(tokenCollection),
             tokenId
         );

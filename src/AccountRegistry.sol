@@ -4,11 +4,12 @@ pragma solidity ^0.8.13;
 import "openzeppelin-contracts/access/Ownable2Step.sol";
 
 import "./Account.sol";
+import "./CrossChainExecutorList.sol";
 import "./lib/MinimalProxyStore.sol";
 
 /**
  * @title A registry for tokenbound Accounts
- * @dev Determines the address for each tokenbound Account and performs deployment of vault instances
+ * @dev Determines the address for each tokenbound Account and performs deployment of account instances
  * @author Jayden Windle (jaydenwindle)
  */
 contract AccountRegistry is Ownable2Step {
@@ -16,14 +17,12 @@ contract AccountRegistry is Ownable2Step {
     error AccountLocked();
 
     /**
-     * @dev Address of the default vault implementation
+     * @dev Address of the default account implementation
      */
     address public immutable defaultImplementation;
 
-    mapping(uint256 => mapping(address => bool)) public isCrossChainExecutor;
-
     /**
-     * @dev Emitted whenever a vault is created
+     * @dev Emitted whenever a account is created
      */
     event AccountCreated(
         address account,
@@ -36,18 +35,21 @@ contract AccountRegistry is Ownable2Step {
      * @dev Deploys the default Account implementation
      */
     constructor() {
-        defaultImplementation = address(new Account());
+        address crossChainExecutorList = address(new CrossChainExecutorList());
+        defaultImplementation = address(
+            new Account(address(this), crossChainExecutorList)
+        );
     }
 
     /**
-     * @dev Deploys the Account instance for an ERC721 token. Will revert if Account has already been deployed
+     * @dev Creates the Account instance for an ERC721 token. Will revert if Account has already been deployed
      *
      * @param chainId the chainid of the network the ERC721 token exists on
      * @param tokenCollection the contract address of the ERC721 token which will control the deployed Account
      * @param tokenId the token ID of the ERC721 token which will control the deployed Account
      * @return The address of the deployed Account
      */
-    function deployAccount(
+    function createAccount(
         uint256 chainId,
         address tokenCollection,
         uint256 tokenId
@@ -58,15 +60,15 @@ contract AccountRegistry is Ownable2Step {
             tokenId
         );
         bytes32 salt = keccak256(encodedTokenData);
-        address vaultProxy = MinimalProxyStore.cloneDeterministic(
+        address accountProxy = MinimalProxyStore.cloneDeterministic(
             defaultImplementation,
             encodedTokenData,
             salt
         );
 
-        emit AccountCreated(vaultProxy, chainId, tokenCollection, tokenId);
+        emit AccountCreated(accountProxy, chainId, tokenCollection, tokenId);
 
-        return vaultProxy;
+        return accountProxy;
     }
 
     /**
@@ -76,26 +78,11 @@ contract AccountRegistry is Ownable2Step {
      * @param tokenId the token ID of the ERC721 token which will control the deployed Account
      * @return The address of the deployed Account
      */
-    function deployAccount(address tokenCollection, uint256 tokenId)
+    function createAccount(address tokenCollection, uint256 tokenId)
         external
         returns (address)
     {
-        return this.deployAccount(block.chainid, tokenCollection, tokenId);
-    }
-
-    /**
-     * @dev Enables or disables a trusted cross-chain executor.
-     *
-     * @param chainId the chainid of the network the executor exists on
-     * @param executor the address of the executor
-     * @param enabled true if executor should be enabled, false otherwise
-     */
-    function setCrossChainExecutor(
-        uint256 chainId,
-        address executor,
-        bool enabled
-    ) external onlyOwner {
-        isCrossChainExecutor[chainId][executor] = enabled;
+        return this.createAccount(block.chainid, tokenCollection, tokenId);
     }
 
     /**
@@ -104,10 +91,10 @@ contract AccountRegistry is Ownable2Step {
      *
      * @param chainId the chainid of the network the ERC721 token exists on
      * @param tokenCollection the address of the ERC721 token contract
-     * @param tokenId the tokenId of the ERC721 token that controls the vault
+     * @param tokenId the tokenId of the ERC721 token that controls the account
      * @return The AccountProxy address
      */
-    function accountAddress(
+    function account(
         uint256 chainId,
         address tokenCollection,
         uint256 tokenId
@@ -119,13 +106,13 @@ contract AccountRegistry is Ownable2Step {
         );
         bytes32 salt = keccak256(encodedTokenData);
 
-        address vaultProxy = MinimalProxyStore.predictDeterministicAddress(
+        address accountProxy = MinimalProxyStore.predictDeterministicAddress(
             defaultImplementation,
             encodedTokenData,
             salt
         );
 
-        return vaultProxy;
+        return accountProxy;
     }
 
     /**
@@ -133,14 +120,14 @@ contract AccountRegistry is Ownable2Step {
      * not yet deployed, returns the address it will be deployed to
      *
      * @param tokenCollection the address of the ERC721 token contract
-     * @param tokenId the tokenId of the ERC721 token that controls the vault
+     * @param tokenId the tokenId of the ERC721 token that controls the account
      * @return The AccountProxy address
      */
-    function accountAddress(address tokenCollection, uint256 tokenId)
+    function account(address tokenCollection, uint256 tokenId)
         external
         view
         returns (address)
     {
-        return this.accountAddress(block.chainid, tokenCollection, tokenId);
+        return this.account(block.chainid, tokenCollection, tokenId);
     }
 }

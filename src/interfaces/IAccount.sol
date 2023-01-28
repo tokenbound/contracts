@@ -10,15 +10,14 @@ interface IAccount is IERC1271 {
         bytes calldata data
     ) external payable returns (bytes memory);
 
-    function executor(address owner) external view returns (address);
-
-    function setExecutor(address _executionModule) external;
-
-    function isLocked() external view returns (bool);
-
-    function lock(uint256 _unlockTimestamp) external;
-
-    function isAuthorized(address caller) external view returns (bool);
-
     function owner() external view returns (address);
+
+    function token()
+        external
+        view
+        returns (
+            uint256 chainId,
+            address tokenContract,
+            uint256 tokenId
+        );
 }

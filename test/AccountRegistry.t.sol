@@ -19,12 +19,12 @@ contract AccountRegistryTest is Test {
     {
         assertTrue(address(accountRegistry) != address(0));
 
-        address predictedAccountAddress = accountRegistry.accountAddress(
+        address predictedAccountAddress = accountRegistry.account(
             tokenCollection,
             tokenId
         );
 
-        address accountAddress = accountRegistry.deployAccount(
+        address accountAddress = accountRegistry.createAccount(
             tokenCollection,
             tokenId
         );
@@ -34,44 +34,6 @@ contract AccountRegistryTest is Test {
         assertEq(
             MinimalProxyStore.getContext(accountAddress),
             abi.encode(block.chainid, tokenCollection, tokenId)
-        );
-    }
-
-    function testSetCrossChainExecutor() public {
-        address crossChainExecutor = vm.addr(1);
-        address notCrossChainExecutor = vm.addr(2);
-
-        accountRegistry.setCrossChainExecutor(
-            block.chainid,
-            crossChainExecutor,
-            true
-        );
-
-        assertTrue(
-            accountRegistry.isCrossChainExecutor(
-                block.chainid,
-                crossChainExecutor
-            )
-        );
-        assertEq(
-            accountRegistry.isCrossChainExecutor(
-                block.chainid,
-                notCrossChainExecutor
-            ),
-            false
-        );
-
-        accountRegistry.setCrossChainExecutor(
-            block.chainid,
-            crossChainExecutor,
-            false
-        );
-        assertEq(
-            accountRegistry.isCrossChainExecutor(
-                block.chainid,
-                crossChainExecutor
-            ),
-            false
         );
     }
 }
