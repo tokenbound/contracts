@@ -3,15 +3,28 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 
+import "../src/interfaces/IRegistry.sol";
+import "../src/lib/MinimalProxyStore.sol";
+import "../src/CrossChainExecutorList.sol";
 import "../src/Account.sol";
 import "../src/AccountRegistry.sol";
-import "../src/lib/MinimalProxyStore.sol";
 
 contract AccountRegistryTest is Test {
+    CrossChainExecutorList ccExecutorList;
+    Account implementation;
     AccountRegistry public accountRegistry;
 
+    event AccountCreated(
+        address account,
+        uint256 chainId,
+        address tokenContract,
+        uint256 tokenId
+    );
+
     function setUp() public {
-        accountRegistry = new AccountRegistry();
+        ccExecutorList = new CrossChainExecutorList();
+        implementation = new Account(address(ccExecutorList));
+        accountRegistry = new AccountRegistry(address(implementation));
     }
 
     function testDeployAccount(address tokenCollection, uint256 tokenId)
@@ -24,6 +37,13 @@ contract AccountRegistryTest is Test {
             tokenId
         );
 
+        vm.expectEmit(true, true, true, true);
+        emit AccountCreated(
+            predictedAccountAddress,
+            block.chainid,
+            tokenCollection,
+            tokenId
+        );
         address accountAddress = accountRegistry.createAccount(
             tokenCollection,
             tokenId

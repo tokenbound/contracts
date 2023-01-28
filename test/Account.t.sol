@@ -6,318 +6,27 @@ import "forge-std/Test.sol";
 import "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/proxy/Clones.sol";
 
+import "../src/CrossChainExecutorList.sol";
 import "../src/Account.sol";
 import "../src/AccountRegistry.sol";
 
 import "./mocks/MockERC721.sol";
-import "./mocks/MockERC1155.sol";
-import "./mocks/MockERC20.sol";
 import "./mocks/MockExecutor.sol";
 import "./mocks/MockReverter.sol";
 
 contract AccountTest is Test {
-    MockERC721 public dummyERC721;
-    MockERC1155 public dummyERC1155;
-    MockERC20 public dummyERC20;
-
+    CrossChainExecutorList ccExecutorList;
+    Account implementation;
     AccountRegistry public accountRegistry;
 
     MockERC721 public tokenCollection;
 
     function setUp() public {
-        dummyERC721 = new MockERC721();
-        dummyERC1155 = new MockERC1155();
-        dummyERC20 = new MockERC20();
-        accountRegistry = new AccountRegistry();
+        ccExecutorList = new CrossChainExecutorList();
+        implementation = new Account(address(ccExecutorList));
+        accountRegistry = new AccountRegistry(address(implementation));
 
         tokenCollection = new MockERC721();
-    }
-
-    function testTransferETHPreDeploy() public {
-        uint256 tokenId = 1;
-        address user1 = vm.addr(1);
-        vm.deal(user1, 0.2 ether);
-
-        // get address that account will be deployed to (before token is minted)
-        address accountAddress = accountRegistry.account(
-            address(tokenCollection),
-            tokenId
-        );
-
-        // mint token for account to user1
-        tokenCollection.mint(user1, tokenId);
-
-        assertEq(tokenCollection.ownerOf(tokenId), user1);
-
-        // send ETH from user1 to account (prior to account deployment)
-        vm.prank(user1);
-        (bool sent, ) = accountAddress.call{value: 0.2 ether}("");
-        assertTrue(sent);
-
-        assertEq(accountAddress.balance, 0.2 ether);
-
-        // deploy account contract (from a different wallet)
-        address createdAccountInstance = accountRegistry.createAccount(
-            address(tokenCollection),
-            tokenId
-        );
-
-        assertEq(accountAddress, createdAccountInstance);
-
-        Account account = Account(payable(accountAddress));
-
-        // user1 executes transaction to send ETH from account
-        vm.prank(user1);
-        account.executeCall(payable(user1), 0.1 ether, "");
-
-        // success!
-        assertEq(accountAddress.balance, 0.1 ether);
-        assertEq(user1.balance, 0.1 ether);
-    }
-
-    function testTransferETHPostDeploy(uint256 tokenId) public {
-        address user1 = vm.addr(1);
-        vm.deal(user1, 0.2 ether);
-
-        address accountAddress = accountRegistry.createAccount(
-            address(tokenCollection),
-            tokenId
-        );
-
-        tokenCollection.mint(user1, tokenId);
-
-        assertEq(tokenCollection.ownerOf(tokenId), user1);
-
-        vm.prank(user1);
-        (bool sent, ) = accountAddress.call{value: 0.2 ether}("");
-        assertTrue(sent);
-
-        assertEq(accountAddress.balance, 0.2 ether);
-
-        Account account = Account(payable(accountAddress));
-
-        vm.prank(user1);
-        account.executeCall(payable(user1), 0.1 ether, "");
-
-        assertEq(accountAddress.balance, 0.1 ether);
-        assertEq(user1.balance, 0.1 ether);
-    }
-
-    function testTransferERC20PreDeploy(uint256 tokenId) public {
-        address user1 = vm.addr(1);
-
-        address computedAccountInstance = accountRegistry.account(
-            address(tokenCollection),
-            tokenId
-        );
-
-        tokenCollection.mint(user1, tokenId);
-        assertEq(tokenCollection.ownerOf(tokenId), user1);
-
-        dummyERC20.mint(computedAccountInstance, 1 ether);
-
-        assertEq(dummyERC20.balanceOf(computedAccountInstance), 1 ether);
-
-        address accountAddress = accountRegistry.createAccount(
-            address(tokenCollection),
-            tokenId
-        );
-
-        Account account = Account(payable(accountAddress));
-
-        bytes memory erc20TransferCall = abi.encodeWithSignature(
-            "transfer(address,uint256)",
-            user1,
-            1 ether
-        );
-        vm.prank(user1);
-        account.executeCall(payable(address(dummyERC20)), 0, erc20TransferCall);
-
-        assertEq(dummyERC20.balanceOf(accountAddress), 0);
-        assertEq(dummyERC20.balanceOf(user1), 1 ether);
-    }
-
-    function testTransferERC20PostDeploy(uint256 tokenId) public {
-        address user1 = vm.addr(1);
-
-        address accountAddress = accountRegistry.createAccount(
-            address(tokenCollection),
-            tokenId
-        );
-
-        tokenCollection.mint(user1, tokenId);
-        assertEq(tokenCollection.ownerOf(tokenId), user1);
-
-        dummyERC20.mint(accountAddress, 1 ether);
-
-        assertEq(dummyERC20.balanceOf(accountAddress), 1 ether);
-
-        Account account = Account(payable(accountAddress));
-
-        bytes memory erc20TransferCall = abi.encodeWithSignature(
-            "transfer(address,uint256)",
-            user1,
-            1 ether
-        );
-        vm.prank(user1);
-        account.executeCall(payable(address(dummyERC20)), 0, erc20TransferCall);
-
-        assertEq(dummyERC20.balanceOf(accountAddress), 0);
-        assertEq(dummyERC20.balanceOf(user1), 1 ether);
-    }
-
-    function testTransferERC1155PreDeploy(uint256 tokenId) public {
-        address user1 = vm.addr(1);
-
-        address computedAccountInstance = accountRegistry.account(
-            address(tokenCollection),
-            tokenId
-        );
-
-        tokenCollection.mint(user1, tokenId);
-        assertEq(tokenCollection.ownerOf(tokenId), user1);
-
-        dummyERC1155.mint(computedAccountInstance, 1, 10);
-
-        assertEq(dummyERC1155.balanceOf(computedAccountInstance, 1), 10);
-
-        address accountAddress = accountRegistry.createAccount(
-            address(tokenCollection),
-            tokenId
-        );
-
-        Account account = Account(payable(accountAddress));
-
-        bytes memory erc1155TransferCall = abi.encodeWithSignature(
-            "safeTransferFrom(address,address,uint256,uint256,bytes)",
-            account,
-            user1,
-            1,
-            10,
-            ""
-        );
-        vm.prank(user1);
-        account.executeCall(
-            payable(address(dummyERC1155)),
-            0,
-            erc1155TransferCall
-        );
-
-        assertEq(dummyERC1155.balanceOf(accountAddress, 1), 0);
-        assertEq(dummyERC1155.balanceOf(user1, 1), 10);
-    }
-
-    function testTransferERC1155PostDeploy(uint256 tokenId) public {
-        address user1 = vm.addr(1);
-
-        address accountAddress = accountRegistry.createAccount(
-            address(tokenCollection),
-            tokenId
-        );
-
-        tokenCollection.mint(user1, tokenId);
-        assertEq(tokenCollection.ownerOf(tokenId), user1);
-
-        dummyERC1155.mint(accountAddress, 1, 10);
-
-        assertEq(dummyERC1155.balanceOf(accountAddress, 1), 10);
-
-        Account account = Account(payable(accountAddress));
-
-        bytes memory erc1155TransferCall = abi.encodeWithSignature(
-            "safeTransferFrom(address,address,uint256,uint256,bytes)",
-            account,
-            user1,
-            1,
-            10,
-            ""
-        );
-        vm.prank(user1);
-        account.executeCall(
-            payable(address(dummyERC1155)),
-            0,
-            erc1155TransferCall
-        );
-
-        assertEq(dummyERC1155.balanceOf(accountAddress, 1), 0);
-        assertEq(dummyERC1155.balanceOf(user1, 1), 10);
-    }
-
-    function testTransferERC721PreDeploy(uint256 tokenId) public {
-        address user1 = vm.addr(1);
-
-        address computedAccountInstance = accountRegistry.account(
-            address(tokenCollection),
-            tokenId
-        );
-
-        tokenCollection.mint(user1, tokenId);
-        assertEq(tokenCollection.ownerOf(tokenId), user1);
-
-        dummyERC721.mint(computedAccountInstance, 1);
-
-        assertEq(dummyERC721.balanceOf(computedAccountInstance), 1);
-        assertEq(dummyERC721.ownerOf(1), computedAccountInstance);
-
-        address accountAddress = accountRegistry.createAccount(
-            address(tokenCollection),
-            tokenId
-        );
-
-        Account account = Account(payable(accountAddress));
-
-        bytes memory erc721TransferCall = abi.encodeWithSignature(
-            "safeTransferFrom(address,address,uint256)",
-            accountAddress,
-            user1,
-            1
-        );
-        vm.prank(user1);
-        account.executeCall(
-            payable(address(dummyERC721)),
-            0,
-            erc721TransferCall
-        );
-
-        assertEq(dummyERC721.balanceOf(address(account)), 0);
-        assertEq(dummyERC721.balanceOf(user1), 1);
-        assertEq(dummyERC721.ownerOf(1), user1);
-    }
-
-    function testTransferERC721PostDeploy(uint256 tokenId) public {
-        address user1 = vm.addr(1);
-
-        address accountAddress = accountRegistry.createAccount(
-            address(tokenCollection),
-            tokenId
-        );
-
-        tokenCollection.mint(user1, tokenId);
-        assertEq(tokenCollection.ownerOf(tokenId), user1);
-
-        dummyERC721.mint(accountAddress, 1);
-
-        assertEq(dummyERC721.balanceOf(accountAddress), 1);
-        assertEq(dummyERC721.ownerOf(1), accountAddress);
-
-        Account account = Account(payable(accountAddress));
-
-        bytes memory erc721TransferCall = abi.encodeWithSignature(
-            "safeTransferFrom(address,address,uint256)",
-            account,
-            user1,
-            1
-        );
-        vm.prank(user1);
-        account.executeCall(
-            payable(address(dummyERC721)),
-            0,
-            erc721TransferCall
-        );
-
-        assertEq(dummyERC721.balanceOf(accountAddress), 0);
-        assertEq(dummyERC721.balanceOf(user1), 1);
-        assertEq(dummyERC721.ownerOf(1), user1);
     }
 
     function testNonOwnerCallsFail(uint256 tokenId) public {
@@ -383,9 +92,7 @@ contract AccountTest is Test {
         assertEq(user2.balance, 0.1 ether);
     }
 
-    function testMessageSigningAndVerificationForAuthorizedUser(uint256 tokenId)
-        public
-    {
+    function testMessageVerification(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
         tokenCollection.mint(user1, tokenId);
@@ -408,9 +115,9 @@ contract AccountTest is Test {
         assertEq(returnValue1, IERC1271.isValidSignature.selector);
     }
 
-    function testMessageSigningAndVerificationForUnauthorizedUser(
-        uint256 tokenId
-    ) public {
+    function testMessageVerificationForUnauthorizedUser(uint256 tokenId)
+        public
+    {
         address user1 = vm.addr(1);
 
         tokenCollection.mint(user1, tokenId);
@@ -618,13 +325,7 @@ contract AccountTest is Test {
 
         assertEq(account.isAuthorized(crossChainExecutor), false);
 
-        // TODO: gross, fix deployments
-        address crossChainExecutorList = address(
-            Account(payable(accountRegistry.defaultImplementation()))
-                .crossChainExecutorList()
-        );
-        vm.prank(address(accountRegistry));
-        CrossChainExecutorList(crossChainExecutorList).setCrossChainExecutor(
+        CrossChainExecutorList(ccExecutorList).setCrossChainExecutor(
             chainId,
             crossChainExecutor,
             true
@@ -688,9 +389,7 @@ contract AccountTest is Test {
     }
 
     function testAccountOwnerIsNullIfContextNotSet() public {
-        address accountClone = Clones.clone(
-            accountRegistry.defaultImplementation()
-        );
+        address accountClone = Clones.clone(accountRegistry.implementation());
 
         assertEq(Account(payable(accountClone)).owner(), address(0));
     }

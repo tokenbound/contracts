@@ -8,7 +8,6 @@ import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 import "openzeppelin-contracts/utils/introspection/IERC165.sol";
 import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
 
-import "./AccountRegistry.sol";
 import "./CrossChainExecutorList.sol";
 import "./MinimalReceiver.sol";
 import "./interfaces/IAccount.sol";
@@ -18,12 +17,10 @@ import "./lib/MinimalProxyStore.sol";
  * @title A smart contract wallet owned by a single ERC721 token
  * @author Jayden Windle (jaydenwindle)
  */
-contract Account is IAccount, MinimalReceiver {
+contract Account is IERC165, IERC1271, IAccount, MinimalReceiver {
     error NotAuthorized();
     error AccountLocked();
     error ExceedsMaxLockTime();
-
-    AccountRegistry public immutable registry;
 
     CrossChainExecutorList public immutable crossChainExecutorList;
 
@@ -47,8 +44,7 @@ contract Account is IAccount, MinimalReceiver {
      */
     event ExecutorUpdated(address owner, address executor);
 
-    constructor(address _registry, address _crossChainExecutorList) {
-        registry = AccountRegistry(_registry);
+    constructor(address _crossChainExecutorList) {
         crossChainExecutorList = CrossChainExecutorList(
             _crossChainExecutorList
         );
@@ -248,7 +244,7 @@ contract Account is IAccount, MinimalReceiver {
         public
         view
         virtual
-        override(ERC1155Receiver)
+        override(IERC165, ERC1155Receiver)
         returns (bool)
     {
         // default interface support
