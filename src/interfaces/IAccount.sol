@@ -7,11 +7,7 @@ interface IAccount {
     function token()
         external
         view
-        returns (
-            uint256 chainId,
-            address tokenContract,
-            uint256 tokenId
-        );
+        returns (address tokenContract, uint256 tokenId);
 
     function executeCall(
         address to,

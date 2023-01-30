@@ -125,7 +125,7 @@ contract Account is IERC165, IERC1271, IAccount, MinimalReceiver {
         uint256 value,
         bytes calldata data
     ) external payable onlyUnlocked returns (bytes memory result) {
-        (uint256 chainId, , ) = token();
+        (uint256 chainId, , ) = context();
 
         if (chainId == block.chainid) {
             revert NotAuthorized();
@@ -186,7 +186,7 @@ contract Account is IERC165, IERC1271, IAccount, MinimalReceiver {
      * @return true if caller is authorized, false otherwise
      */
     function isAuthorized(address caller) external view returns (bool) {
-        (uint256 chainId, address tokenCollection, uint256 tokenId) = token();
+        (uint256 chainId, address tokenCollection, uint256 tokenId) = context();
 
         if (chainId != block.chainid) {
             return crossChainExecutorList.isCrossChainExecutor(chainId, caller);
@@ -278,7 +278,7 @@ contract Account is IERC165, IERC1271, IAccount, MinimalReceiver {
      * @return the address of the Account owner
      */
     function owner() public view returns (address) {
-        (uint256 chainId, address tokenCollection, uint256 tokenId) = token();
+        (uint256 chainId, address tokenCollection, uint256 tokenId) = context();
 
         if (chainId != block.chainid) {
             return address(0);
@@ -290,17 +290,24 @@ contract Account is IERC165, IERC1271, IAccount, MinimalReceiver {
     /**
      * @dev Returns intformation about the token that owns this account
      *
-     * @return chainId the chainId of the ERC721 token which owns this account
      * @return tokenCollection the contract address of the  ERC721 token which owns this account
      * @return tokenId the tokenId of the  ERC721 token which owns this account
      */
     function token()
         public
         view
+        returns (address tokenCollection, uint256 tokenId)
+    {
+        (, tokenCollection, tokenId) = context();
+    }
+
+    function context()
+        internal
+        view
         returns (
-            uint256 chainId,
-            address tokenCollection,
-            uint256 tokenId
+            uint256,
+            address,
+            uint256
         )
     {
         bytes memory rawContext = MinimalProxyStore.getContext(address(this));
