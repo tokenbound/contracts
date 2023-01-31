@@ -16,8 +16,8 @@ contract AccountRegistryTest is Test {
 
     event AccountCreated(
         address account,
-        address tokenContract,
-        uint256 tokenId
+        address indexed tokenContract,
+        uint256 indexed tokenId
     );
 
     function setUp() public {

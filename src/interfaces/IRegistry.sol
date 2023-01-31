@@ -4,8 +4,8 @@ pragma solidity ^0.8.13;
 interface IRegistry {
     event AccountCreated(
         address account,
-        address tokenContract,
-        uint256 tokenId
+        address indexed tokenContract,
+        uint256 indexed tokenId
     );
 
     function createAccount(address tokenContract, uint256 tokenId)
