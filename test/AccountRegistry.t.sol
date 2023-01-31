@@ -16,7 +16,6 @@ contract AccountRegistryTest is Test {
 
     event AccountCreated(
         address account,
-        uint256 chainId,
         address tokenContract,
         uint256 tokenId
     );
@@ -38,12 +37,7 @@ contract AccountRegistryTest is Test {
         );
 
         vm.expectEmit(true, true, true, true);
-        emit AccountCreated(
-            predictedAccountAddress,
-            block.chainid,
-            tokenCollection,
-            tokenId
-        );
+        emit AccountCreated(predictedAccountAddress, tokenCollection, tokenId);
         address accountAddress = accountRegistry.createAccount(
             tokenCollection,
             tokenId
