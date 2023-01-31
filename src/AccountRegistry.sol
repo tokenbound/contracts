@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "openzeppelin-contracts/access/Ownable2Step.sol";
-
 import "./interfaces/IRegistry.sol";
-import "./CrossChainExecutorList.sol";
-import "./Account.sol";
 import "./lib/MinimalProxyStore.sol";
+import "./Account.sol";
 
 /**
  * @title A registry for token bound accounts
