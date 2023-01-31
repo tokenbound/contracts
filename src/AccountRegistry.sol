@@ -100,7 +100,7 @@ contract AccountRegistry is IRegistry {
             salt
         );
 
-        emit AccountCreated(accountProxy, chainId, tokenCollection, tokenId);
+        emit AccountCreated(accountProxy, tokenCollection, tokenId);
 
         return accountProxy;
     }
