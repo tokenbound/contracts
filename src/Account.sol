@@ -139,7 +139,7 @@ contract Account is IERC165, IERC1271, IAccount, MinimalReceiver {
     }
 
     /**
-     * @dev Sets executior address for Account, allowing owner to use a custom implementation if they choose to.
+     * @dev Sets executor address for Account, allowing owner to use a custom implementation if they choose to.
      * When the token controlling the account is transferred, the implementation address will reset
      *
      * @param _executionModule the address of the execution module
@@ -288,7 +288,7 @@ contract Account is IERC165, IERC1271, IAccount, MinimalReceiver {
     }
 
     /**
-     * @dev Returns intformation about the token that owns this account
+     * @dev Returns information about the token that owns this account
      *
      * @return tokenCollection the contract address of the  ERC721 token which owns this account
      * @return tokenId the tokenId of the  ERC721 token which owns this account
