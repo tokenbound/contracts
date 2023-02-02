@@ -8,24 +8,24 @@ import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 import "openzeppelin-contracts/utils/introspection/IERC165.sol";
 import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
 
-import "./VaultRegistry.sol";
+import "./CrossChainExecutorList.sol";
 import "./MinimalReceiver.sol";
-import "./interfaces/IVault.sol";
+import "./interfaces/IAccount.sol";
 import "./lib/MinimalProxyStore.sol";
 
 /**
  * @title A smart contract wallet owned by a single ERC721 token
  * @author Jayden Windle (jaydenwindle)
  */
-contract Vault is IVault, MinimalReceiver {
+contract Account is IERC165, IERC1271, IAccount, MinimalReceiver {
     error NotAuthorized();
-    error VaultLocked();
+    error AccountLocked();
     error ExceedsMaxLockTime();
 
-    VaultRegistry public immutable registry = VaultRegistry(msg.sender);
+    CrossChainExecutorList public immutable crossChainExecutorList;
 
     /**
-     * @dev Timestamp at which Vault will unlock
+     * @dev Timestamp at which Account will unlock
      */
     uint256 public unlockTimestamp;
 
@@ -35,25 +35,31 @@ contract Vault is IVault, MinimalReceiver {
     mapping(address => address) public executor;
 
     /**
-     * @dev Emitted whenever the lock status of a vault is updated
+     * @dev Emitted whenever the lock status of a account is updated
      */
     event LockUpdated(uint256 timestamp);
 
     /**
-     * @dev Emitted whenever the executor for a vault is updated
+     * @dev Emitted whenever the executor for a account is updated
      */
     event ExecutorUpdated(address owner, address executor);
 
+    constructor(address _crossChainExecutorList) {
+        crossChainExecutorList = CrossChainExecutorList(
+            _crossChainExecutorList
+        );
+    }
+
     /**
-     * @dev Ensures execution can only continue if the vault is not locked
+     * @dev Ensures execution can only continue if the account is not locked
      */
     modifier onlyUnlocked() {
-        if (unlockTimestamp > block.timestamp) revert VaultLocked();
+        if (unlockTimestamp > block.timestamp) revert AccountLocked();
         _;
     }
 
     /**
-     * @dev If vault is unlocked and an executor is set, pass call to executor
+     * @dev If account is unlocked and an executor is set, pass call to executor
      */
     fallback(bytes calldata data)
         external
@@ -71,7 +77,7 @@ contract Vault is IVault, MinimalReceiver {
     }
 
     /**
-     * @dev Executes a transaction from the Vault. Must be called by an vault owner.
+     * @dev Executes a transaction from the Account. Must be called by an account owner.
      *
      * @param to      Destination address of the transaction
      * @param value   Ether value of the transaction
@@ -89,7 +95,7 @@ contract Vault is IVault, MinimalReceiver {
     }
 
     /**
-     * @dev Executes a transaction from the Vault. Must be called by an authorized executor.
+     * @dev Executes a transaction from the Account. Must be called by an authorized executor.
      *
      * @param to      Destination address of the transaction
      * @param value   Ether value of the transaction
@@ -107,8 +113,8 @@ contract Vault is IVault, MinimalReceiver {
     }
 
     /**
-     * @dev Executes a transaction from the Vault. Must be called by a trusted cross-chain executor.
-     * Can only be called if vault is owned by a token on another chain.
+     * @dev Executes a transaction from the Account. Must be called by a trusted cross-chain executor.
+     * Can only be called if account is owned by a token on another chain.
      *
      * @param to      Destination address of the transaction
      * @param value   Ether value of the transaction
@@ -125,7 +131,7 @@ contract Vault is IVault, MinimalReceiver {
             revert NotAuthorized();
         }
 
-        if (!registry.isCrossChainExecutor(chainId, msg.sender)) {
+        if (!crossChainExecutorList.isCrossChainExecutor(chainId, msg.sender)) {
             revert NotAuthorized();
         }
 
@@ -133,8 +139,8 @@ contract Vault is IVault, MinimalReceiver {
     }
 
     /**
-     * @dev Sets executior address for Vault, allowing owner to use a custom implementation if they choose to.
-     * When the token controlling the vault is transferred, the implementation address will reset
+     * @dev Sets executor address for Account, allowing owner to use a custom implementation if they choose to.
+     * When the token controlling the account is transferred, the implementation address will reset
      *
      * @param _executionModule the address of the execution module
      */
@@ -148,9 +154,9 @@ contract Vault is IVault, MinimalReceiver {
     }
 
     /**
-     * @dev Locks Vault, preventing transactions from being executed until a certain time
+     * @dev Locks Account, preventing transactions from being executed until a certain time
      *
-     * @param _unlockTimestamp timestamp when the vault will become unlocked
+     * @param _unlockTimestamp timestamp when the account will become unlocked
      */
     function lock(uint256 _unlockTimestamp) external onlyUnlocked {
         if (_unlockTimestamp > block.timestamp + 365 days)
@@ -165,16 +171,16 @@ contract Vault is IVault, MinimalReceiver {
     }
 
     /**
-     * @dev Returns Vault lock status
+     * @dev Returns Account lock status
      *
-     * @return true if Vault is locked, false otherwise
+     * @return true if Account is locked, false otherwise
      */
     function isLocked() external view returns (bool) {
         return unlockTimestamp > block.timestamp;
     }
 
     /**
-     * @dev Returns true if caller is authorized to execute actions on this vault
+     * @dev Returns true if caller is authorized to execute actions on this account
      *
      * @param caller the address to query authorization for
      * @return true if caller is authorized, false otherwise
@@ -183,7 +189,7 @@ contract Vault is IVault, MinimalReceiver {
         (uint256 chainId, address tokenCollection, uint256 tokenId) = context();
 
         if (chainId != block.chainid) {
-            return registry.isCrossChainExecutor(chainId, caller);
+            return crossChainExecutorList.isCrossChainExecutor(chainId, caller);
         }
 
         address _owner = IERC721(tokenCollection).ownerOf(tokenId);
@@ -206,10 +212,10 @@ contract Vault is IVault, MinimalReceiver {
         view
         returns (bytes4 magicValue)
     {
-        // If vault is locked, disable signing
+        // If account is locked, disable signing
         if (unlockTimestamp > block.timestamp) return "";
 
-        // If vault has an executor, check if executor signature is valid
+        // If account has an executor, check if executor signature is valid
         address _owner = owner();
         address _executor = executor[_owner];
 
@@ -220,7 +226,7 @@ contract Vault is IVault, MinimalReceiver {
             return IERC1271.isValidSignature.selector;
         }
 
-        // Default - check if signature is valid for vault owner
+        // Default - check if signature is valid for account owner
         if (SignatureChecker.isValidSignatureNow(_owner, hash, signature)) {
             return IERC1271.isValidSignature.selector;
         }
@@ -238,12 +244,12 @@ contract Vault is IVault, MinimalReceiver {
         public
         view
         virtual
-        override(ERC1155Receiver)
+        override(IERC165, ERC1155Receiver)
         returns (bool)
     {
         // default interface support
         if (
-            interfaceId == type(IVault).interfaceId ||
+            interfaceId == type(IAccount).interfaceId ||
             interfaceId == type(IERC1155Receiver).interfaceId ||
             interfaceId == type(IERC165).interfaceId
         ) {
@@ -267,9 +273,9 @@ contract Vault is IVault, MinimalReceiver {
     }
 
     /**
-     * @dev Returns the owner of the token that controls this Vault (public for Ownable compatibility)
+     * @dev Returns the owner of the token that controls this Account (public for Ownable compatibility)
      *
-     * @return the address of the Vault owner
+     * @return the address of the Account owner
      */
     function owner() public view returns (address) {
         (uint256 chainId, address tokenCollection, uint256 tokenId) = context();
@@ -282,19 +288,26 @@ contract Vault is IVault, MinimalReceiver {
     }
 
     /**
-     * @dev Returns the stored vault context
+     * @dev Returns information about the token that owns this account
      *
-     * @return chainId the chainId of the ERC721 token which owns this vaule
-     * @return tokenCollection the contract address of the  ERC721 token which owns this vaule
-     * @return tokenId the tokenId of the  ERC721 token which owns this vaule
+     * @return tokenCollection the contract address of the  ERC721 token which owns this account
+     * @return tokenId the tokenId of the  ERC721 token which owns this account
      */
-    function context()
+    function token()
         public
         view
+        returns (address tokenCollection, uint256 tokenId)
+    {
+        (, tokenCollection, tokenId) = context();
+    }
+
+    function context()
+        internal
+        view
         returns (
-            uint256 chainId,
-            address tokenCollection,
-            uint256 tokenId
+            uint256,
+            address,
+            uint256
         )
     {
         bytes memory rawContext = MinimalProxyStore.getContext(address(this));
