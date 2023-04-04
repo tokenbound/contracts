@@ -7,3 +7,9 @@
 [submodule "lib/sstore2"]
 	path = lib/sstore2
 	url = https://github.com/0xsequence/sstore2
+[submodule "lib/account-abstraction"]
+	path = lib/account-abstraction
+	url = https://github.com/eth-infinitism/account-abstraction
+[submodule "lib/reference"]
+	path = lib/reference
+	url = https://github.com/erc6551/reference
