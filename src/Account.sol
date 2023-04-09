@@ -1,324 +1,331 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "openzeppelin-contracts/token/ERC721/IERC721.sol";
-import "openzeppelin-contracts/interfaces/IERC1271.sol";
-import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
+import "erc6551/interfaces/IERC6551Account.sol";
 
 import "openzeppelin-contracts/utils/introspection/IERC165.sol";
+import "openzeppelin-contracts/token/ERC721/IERC721.sol";
+import "openzeppelin-contracts/token/ERC721/IERC721Receiver.sol";
 import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
+import "openzeppelin-contracts/interfaces/IERC1271.sol";
+import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
+import "openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 
-import "./CrossChainExecutorList.sol";
-import "./MinimalReceiver.sol";
-import "./interfaces/IAccount.sol";
-import "./lib/MinimalProxyStore.sol";
+import "sstore2/utils/Bytecode.sol";
+import {BaseAccount as BaseERC4337Account, IEntryPoint, UserOperation, IAccount as IERC4337Account} from "account-abstraction/core/BaseAccount.sol";
+
+import "./interfaces/IAccountGuardian.sol";
+
+error NotAuthorized();
+error InvalidInput();
+error AccountLocked();
+error ExceedsMaxLockTime();
+error InvalidNonce();
+error UntrustedImplementation();
 
 /**
  * @title A smart contract wallet owned by a single ERC721 token
- * @author Jayden Windle (jaydenwindle)
  */
-contract Account is IERC165, IERC1271, IAccount, MinimalReceiver {
-    error NotAuthorized();
-    error AccountLocked();
-    error ExceedsMaxLockTime();
+contract Account is
+    IERC165,
+    IERC1271,
+    IERC6551Account,
+    IERC721Receiver,
+    IERC1155Receiver,
+    UUPSUpgradeable,
+    BaseERC4337Account
+{
+    // @dev ERC-4337 entry point
+    address immutable _entryPoint;
 
-    CrossChainExecutorList public immutable crossChainExecutorList;
+    // @dev AccountGuardian contract
+    address public immutable guardian;
 
-    /**
-     * @dev Timestamp at which Account will unlock
-     */
-    uint256 public unlockTimestamp;
+    // @dev Updated on each transaction
+    uint256 _nonce;
 
-    /**
-     * @dev Mapping from owner address to executor address
-     */
-    mapping(address => address) public executor;
+    // @dev timestamp at which this account will be unlocked
+    uint256 public lockedUntil;
 
-    /**
-     * @dev Emitted whenever the lock status of a account is updated
-     */
-    event LockUpdated(uint256 timestamp);
+    // @dev mapping from owner => selector => implementation
+    mapping(address => mapping(bytes4 => address)) public overrides;
 
-    /**
-     * @dev Emitted whenever the executor for a account is updated
-     */
-    event ExecutorUpdated(address owner, address executor);
+    // @dev mapping from owner => caller => selector => has permissions
+    mapping(address => mapping(address => mapping(bytes4 => bool)))
+        public permissions;
 
-    constructor(address _crossChainExecutorList) {
-        crossChainExecutorList = CrossChainExecutorList(
-            _crossChainExecutorList
-        );
-    }
-
-    /**
-     * @dev Ensures execution can only continue if the account is not locked
-     */
-    modifier onlyUnlocked() {
-        if (unlockTimestamp > block.timestamp) revert AccountLocked();
+    modifier onlyOwner() {
+        if (msg.sender != owner()) revert NotAuthorized();
         _;
     }
 
-    /**
-     * @dev If account is unlocked and an executor is set, pass call to executor
-     */
-    fallback(bytes calldata data)
-        external
-        payable
-        onlyUnlocked
-        returns (bytes memory result)
-    {
-        address _owner = owner();
-        address _executor = executor[_owner];
-
-        // accept funds if executor is undefined or cannot be called
-        if (_executor.code.length == 0) return "";
-
-        return _call(_executor, 0, data);
+    modifier onlyAuthorized() {
+        if (!isAuthorized(msg.sender, msg.sig)) revert NotAuthorized();
+        _;
     }
 
-    /**
-     * @dev Executes a transaction from the Account. Must be called by an account owner.
-     *
-     * @param to      Destination address of the transaction
-     * @param value   Ether value of the transaction
-     * @param data    Encoded payload of the transaction
-     */
+    modifier onlyUnlocked() {
+        if (isLocked()) revert AccountLocked();
+        _;
+    }
+
+    constructor(address _guardian, address entryPoint_) {
+        _entryPoint = entryPoint_;
+        guardian = _guardian;
+    }
+
+    receive() external payable {
+        _handleOverride();
+    }
+
+    fallback() external payable {
+        _handleOverride();
+    }
+
     function executeCall(
         address to,
         uint256 value,
         bytes calldata data
-    ) external payable onlyUnlocked returns (bytes memory result) {
+    )
+        external
+        payable
+        onlyAuthorized
+        onlyUnlocked
+        returns (bytes memory result)
+    {
+        ++_nonce;
+
+        _handleOverride();
+
+        result = _call(to, value, data);
+
+        emit TransactionExecuted(to, value, data);
+    }
+
+    function setOverrides(
+        bytes4[] calldata selectors,
+        address[] calldata implementations
+    ) external onlyUnlocked {
         address _owner = owner();
         if (msg.sender != _owner) revert NotAuthorized();
 
-        return _call(to, value, data);
-    }
+        if (selectors.length != implementations.length) revert InvalidInput();
 
-    /**
-     * @dev Executes a transaction from the Account. Must be called by an authorized executor.
-     *
-     * @param to      Destination address of the transaction
-     * @param value   Ether value of the transaction
-     * @param data    Encoded payload of the transaction
-     */
-    function executeTrustedCall(
-        address to,
-        uint256 value,
-        bytes calldata data
-    ) external payable onlyUnlocked returns (bytes memory result) {
-        address _executor = executor[owner()];
-        if (msg.sender != _executor) revert NotAuthorized();
+        ++_nonce;
 
-        return _call(to, value, data);
-    }
-
-    /**
-     * @dev Executes a transaction from the Account. Must be called by a trusted cross-chain executor.
-     * Can only be called if account is owned by a token on another chain.
-     *
-     * @param to      Destination address of the transaction
-     * @param value   Ether value of the transaction
-     * @param data    Encoded payload of the transaction
-     */
-    function executeCrossChainCall(
-        address to,
-        uint256 value,
-        bytes calldata data
-    ) external payable onlyUnlocked returns (bytes memory result) {
-        (uint256 chainId, , ) = context();
-
-        if (chainId == block.chainid) {
-            revert NotAuthorized();
+        for (uint256 i = 0; i < selectors.length; i++) {
+            overrides[_owner][selectors[i]] = implementations[i];
         }
-
-        if (!crossChainExecutorList.isCrossChainExecutor(chainId, msg.sender)) {
-            revert NotAuthorized();
-        }
-
-        return _call(to, value, data);
     }
 
-    /**
-     * @dev Sets executor address for Account, allowing owner to use a custom implementation if they choose to.
-     * When the token controlling the account is transferred, the implementation address will reset
-     *
-     * @param _executionModule the address of the execution module
-     */
-    function setExecutor(address _executionModule) external onlyUnlocked {
+    function setPermissions(
+        bytes4[] calldata selectors,
+        address[] calldata implementations
+    ) external onlyUnlocked {
         address _owner = owner();
-        if (_owner != msg.sender) revert NotAuthorized();
+        if (msg.sender != _owner) revert NotAuthorized();
 
-        executor[_owner] = _executionModule;
+        if (selectors.length != implementations.length) revert InvalidInput();
 
-        emit ExecutorUpdated(_owner, _executionModule);
+        ++_nonce;
+
+        for (uint256 i = 0; i < selectors.length; i++) {
+            permissions[_owner][implementations[i]][selectors[i]] = true;
+        }
     }
 
-    /**
-     * @dev Locks Account, preventing transactions from being executed until a certain time
-     *
-     * @param _unlockTimestamp timestamp when the account will become unlocked
-     */
-    function lock(uint256 _unlockTimestamp) external onlyUnlocked {
-        if (_unlockTimestamp > block.timestamp + 365 days)
+    function lock(uint256 _lockedUntil) external onlyOwner onlyUnlocked {
+        if (_lockedUntil > block.timestamp + 365 days)
             revert ExceedsMaxLockTime();
 
-        address _owner = owner();
-        if (_owner != msg.sender) revert NotAuthorized();
+        ++_nonce;
 
-        unlockTimestamp = _unlockTimestamp;
-
-        emit LockUpdated(_unlockTimestamp);
+        lockedUntil = _lockedUntil;
     }
 
-    /**
-     * @dev Returns Account lock status
-     *
-     * @return true if Account is locked, false otherwise
-     */
-    function isLocked() external view returns (bool) {
-        return unlockTimestamp > block.timestamp;
+    function isLocked() public view returns (bool) {
+        return lockedUntil > block.timestamp;
     }
 
-    /**
-     * @dev Returns true if caller is authorized to execute actions on this account
-     *
-     * @param caller the address to query authorization for
-     * @return true if caller is authorized, false otherwise
-     */
-    function isAuthorized(address caller) external view returns (bool) {
-        (uint256 chainId, address tokenCollection, uint256 tokenId) = context();
-
-        if (chainId != block.chainid) {
-            return crossChainExecutorList.isCrossChainExecutor(chainId, caller);
-        }
-
-        address _owner = IERC721(tokenCollection).ownerOf(tokenId);
-        if (caller == _owner) return true;
-
-        address _executor = executor[_owner];
-        if (caller == _executor) return true;
-
-        return false;
-    }
-
-    /**
-     * @dev Implements EIP-1271 signature validation
-     *
-     * @param hash      Hash of the signed data
-     * @param signature Signature to validate
-     */
     function isValidSignature(bytes32 hash, bytes memory signature)
         external
         view
         returns (bytes4 magicValue)
     {
-        // If account is locked, disable signing
-        if (unlockTimestamp > block.timestamp) return "";
+        _handleOverrideStatic();
 
-        // If account has an executor, check if executor signature is valid
-        address _owner = owner();
-        address _executor = executor[_owner];
+        bool isValid = SignatureChecker.isValidSignatureNow(
+            owner(),
+            hash,
+            signature
+        );
 
-        if (
-            _executor != address(0) &&
-            SignatureChecker.isValidSignatureNow(_executor, hash, signature)
-        ) {
-            return IERC1271.isValidSignature.selector;
-        }
-
-        // Default - check if signature is valid for account owner
-        if (SignatureChecker.isValidSignatureNow(_owner, hash, signature)) {
+        if (isValid) {
             return IERC1271.isValidSignature.selector;
         }
 
         return "";
     }
 
-    /**
-     * @dev Implements EIP-165 standard interface detection
-     *
-     * @param interfaceId the interfaceId to check support for
-     * @return true if the interface is supported, false otherwise
-     */
+    function token()
+        external
+        view
+        returns (
+            uint256 chainId,
+            address tokenContract,
+            uint256 tokenId
+        )
+    {
+        address self = address(this);
+        uint256 length = self.code.length;
+        if (length < 0x60) return (0, address(0), 0);
+
+        return
+            abi.decode(
+                Bytecode.codeAt(self, length - 0x60, length),
+                (uint256, address, uint256)
+            );
+    }
+
+    function nonce()
+        public
+        view
+        override(BaseERC4337Account, IERC6551Account)
+        returns (uint256)
+    {
+        return _nonce;
+    }
+
+    function entryPoint() public view override returns (IEntryPoint) {
+        return IEntryPoint(_entryPoint);
+    }
+
+    function owner() public view returns (address) {
+        (uint256 chainId, address tokenContract, uint256 tokenId) = this
+            .token();
+
+        if (chainId != block.chainid) return address(0);
+
+        return IERC721(tokenContract).ownerOf(tokenId);
+    }
+
+    function isAuthorized(address caller, bytes4 selector)
+        public
+        view
+        returns (bool)
+    {
+        (uint256 chainId, address tokenContract, uint256 tokenId) = this
+            .token();
+
+        address _owner = IERC721(tokenContract).ownerOf(tokenId);
+
+        // authorize token owner
+        if (caller == _owner) return true;
+
+        // authorize entrypoint for 4337 transactions
+        if (caller == _entryPoint) return true;
+
+        // authorize caller if owner has granted permissions for function call
+        if (permissions[_owner][caller][selector]) return true;
+
+        // authorize trusted cross-chain executors if not on native chain
+        if (
+            chainId != block.chainid &&
+            IAccountGuardian(guardian).isTrustedExecutor(caller)
+        ) return true;
+
+        return false;
+    }
+
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        virtual
-        override(IERC165, ERC1155Receiver)
+        override
         returns (bool)
     {
-        // default interface support
-        if (
-            interfaceId == type(IAccount).interfaceId ||
+        bool defaultSupport = interfaceId == type(IERC165).interfaceId ||
             interfaceId == type(IERC1155Receiver).interfaceId ||
-            interfaceId == type(IERC165).interfaceId
-        ) {
-            return true;
-        }
+            interfaceId == type(IERC6551Account).interfaceId;
 
-        address _executor = executor[owner()];
+        if (defaultSupport) return true;
 
-        if (_executor == address(0) || _executor.code.length == 0) {
-            return false;
-        }
+        // if not supported by default, check override
+        _handleOverrideStatic();
 
-        // if interface is not supported by default, check executor
-        try IERC165(_executor).supportsInterface(interfaceId) returns (
-            bool _supportsInterface
-        ) {
-            return _supportsInterface;
-        } catch {
-            return false;
-        }
+        return false;
     }
 
-    /**
-     * @dev Returns the owner of the token that controls this Account (public for Ownable compatibility)
-     *
-     * @return the address of the Account owner
-     */
-    function owner() public view returns (address) {
-        (uint256 chainId, address tokenCollection, uint256 tokenId) = context();
+    function onERC721Received(
+        address,
+        address,
+        uint256,
+        bytes memory
+    ) public view override returns (bytes4) {
+        _handleOverrideStatic();
 
-        if (chainId != block.chainid) {
-            return address(0);
-        }
-
-        return IERC721(tokenCollection).ownerOf(tokenId);
+        return this.onERC721Received.selector;
     }
 
-    /**
-     * @dev Returns information about the token that owns this account
-     *
-     * @return tokenCollection the contract address of the  ERC721 token which owns this account
-     * @return tokenId the tokenId of the  ERC721 token which owns this account
-     */
-    function token()
-        public
-        view
-        returns (address tokenCollection, uint256 tokenId)
-    {
-        (, tokenCollection, tokenId) = context();
+    function onERC1155Received(
+        address,
+        address,
+        uint256,
+        uint256,
+        bytes memory
+    ) public view override returns (bytes4) {
+        _handleOverrideStatic();
+
+        return this.onERC1155Received.selector;
     }
 
-    function context()
+    function onERC1155BatchReceived(
+        address,
+        address,
+        uint256[] memory,
+        uint256[] memory,
+        bytes memory
+    ) public view override returns (bytes4) {
+        _handleOverrideStatic();
+
+        return this.onERC1155BatchReceived.selector;
+    }
+
+    function _authorizeUpgrade(address newImplementation)
         internal
         view
-        returns (
-            uint256,
-            address,
-            uint256
-        )
+        override
+        onlyOwner
     {
-        bytes memory rawContext = MinimalProxyStore.getContext(address(this));
-        if (rawContext.length == 0) return (0, address(0), 0);
-
-        return abi.decode(rawContext, (uint256, address, uint256));
+        bool isTrusted = IAccountGuardian(guardian).isTrustedImplementation(
+            newImplementation
+        );
+        if (!isTrusted) revert UntrustedImplementation();
     }
 
-    /**
-     * @dev Executes a low-level call
-     */
+    function _validateSignature(
+        UserOperation calldata userOp,
+        bytes32 userOpHash
+    ) internal view override returns (uint256 validationData) {
+        bool isValid = SignatureChecker.isValidSignatureNow(
+            owner(),
+            userOpHash,
+            userOp.signature
+        );
+
+        if (isValid) {
+            return 0;
+        }
+
+        return 1;
+    }
+
+    function _validateAndUpdateNonce(UserOperation calldata userOp)
+        internal
+        override
+    {
+        if (_nonce++ != userOp.nonce) revert InvalidNonce();
+    }
+
     function _call(
         address to,
         uint256 value,
@@ -330,6 +337,43 @@ contract Account is IERC165, IERC1271, IAccount, MinimalReceiver {
         if (!success) {
             assembly {
                 revert(add(result, 32), mload(result))
+            }
+        }
+    }
+
+    function _handleOverride() internal {
+        address implementation = overrides[owner()][msg.sig];
+
+        if (implementation != address(0)) {
+            bytes memory result = _call(implementation, msg.value, msg.data);
+            assembly {
+                return(add(result, 32), mload(result))
+            }
+        }
+    }
+
+    function _callStatic(address to, bytes calldata data)
+        internal
+        view
+        returns (bytes memory result)
+    {
+        bool success;
+        (success, result) = to.staticcall(data);
+
+        if (!success) {
+            assembly {
+                revert(add(result, 32), mload(result))
+            }
+        }
+    }
+
+    function _handleOverrideStatic() internal view {
+        address implementation = overrides[owner()][msg.sig];
+
+        if (implementation != address(0)) {
+            bytes memory result = _callStatic(implementation, msg.data);
+            assembly {
+                return(add(result, 32), mload(result))
             }
         }
     }

@@ -6,23 +6,25 @@ import "forge-std/Test.sol";
 import "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/proxy/Clones.sol";
 
-import "../src/CrossChainExecutorList.sol";
+import "erc6551/ERC6551Registry.sol";
+import "erc6551/interfaces/IERC6551Account.sol";
+
 import "../src/Account.sol";
-import "../src/AccountRegistry.sol";
+import "../src/AccountGuardian.sol";
 
 import "./mocks/MockERC721.sol";
 
-contract AccountTest is Test {
-    CrossChainExecutorList ccExecutorList;
+contract AccountETHTest is Test {
     Account implementation;
-    AccountRegistry public accountRegistry;
+    AccountGuardian public guardian;
+    ERC6551Registry public registry;
 
     MockERC721 public tokenCollection;
 
     function setUp() public {
-        ccExecutorList = new CrossChainExecutorList();
-        implementation = new Account(address(ccExecutorList));
-        accountRegistry = new AccountRegistry(address(implementation));
+        guardian = new AccountGuardian();
+        implementation = new Account(address(guardian), address(0));
+        registry = new ERC6551Registry();
 
         tokenCollection = new MockERC721();
     }
@@ -33,9 +35,12 @@ contract AccountTest is Test {
         vm.deal(user1, 0.2 ether);
 
         // get address that account will be deployed to (before token is minted)
-        address accountAddress = accountRegistry.account(
+        address accountAddress = registry.account(
+            address(implementation),
+            block.chainid,
             address(tokenCollection),
-            tokenId
+            tokenId,
+            0
         );
 
         // mint token for account to user1
@@ -51,9 +56,13 @@ contract AccountTest is Test {
         assertEq(accountAddress.balance, 0.2 ether);
 
         // deploy account contract (from a different wallet)
-        address createdAccountInstance = accountRegistry.createAccount(
+        address createdAccountInstance = registry.createAccount(
+            address(implementation),
+            block.chainid,
             address(tokenCollection),
-            tokenId
+            tokenId,
+            0,
+            ""
         );
 
         assertEq(accountAddress, createdAccountInstance);
@@ -73,9 +82,13 @@ contract AccountTest is Test {
         address user1 = vm.addr(1);
         vm.deal(user1, 0.2 ether);
 
-        address accountAddress = accountRegistry.createAccount(
+        address accountAddress = registry.createAccount(
+            address(implementation),
+            block.chainid,
             address(tokenCollection),
-            tokenId
+            tokenId,
+            0,
+            ""
         );
 
         tokenCollection.mint(user1, tokenId);
