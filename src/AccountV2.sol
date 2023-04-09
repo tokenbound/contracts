@@ -11,7 +11,9 @@ import "openzeppelin-contracts/interfaces/IERC1271.sol";
 import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 import "openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import "openzeppelin-contracts/access/AccessControl.sol";
-import "account-abstraction/core/BaseAccount.sol";
+
+import {BaseAccount, IEntryPoint, UserOperation, IAccount as IERC4337Account} from "account-abstraction/core/BaseAccount.sol";
+
 import "sstore2/utils/Bytecode.sol";
 
 error NotAuthorized();
@@ -37,7 +39,7 @@ contract AccountV2 is
     uint256 _nonce;
 
     // @dev address that manages upgrade and cross-chain execution settings
-    address guardian;
+    address public guardian;
 
     // @dev timestamp at which this account will be unlocked
     uint256 public lockedUntil;
@@ -75,44 +77,31 @@ contract AccountV2 is
         _;
     }
 
-    constructor(address entryPoint_) {
+    constructor(address _guardian, address entryPoint_) {
         _entryPoint = entryPoint_;
-        guardian = msg.sender;
+        guardian = _guardian;
     }
 
     receive() external payable {
-        _callOverride();
+        _handleOverride();
     }
 
-    fallback(bytes calldata)
-        external
-        payable
-        onlyUnlocked
-        returns (bytes memory)
-    {
-        return _callOverride();
+    fallback() external payable onlyUnlocked {
+        _handleOverride();
     }
 
     function executeCall(
         address to,
         uint256 value,
         bytes calldata data
-    )
-        external
-        payable
-        onlyAuthorized
-        onlyUnlocked
-        returns (bytes memory result)
-    {
+    ) external payable onlyAuthorized onlyUnlocked returns (bytes memory) {
         if (!isAuthorized(msg.sender, msg.sig)) revert NotAuthorized();
 
         ++_nonce;
 
-        result = _callOverride();
+        _handleOverride();
 
-        if (result.length != 0) {
-            result = _call(to, value, data);
-        }
+        return _call(to, value, data);
     }
 
     function setOverrides(
@@ -167,7 +156,7 @@ contract AccountV2 is
         notDelegated
         onlyGuardian
     {
-        trustedImplementations[executor] = trusted;
+        trustedExecutors[executor] = trusted;
     }
 
     function setGuardian(address _guardian) external notDelegated onlyGuardian {
@@ -183,6 +172,8 @@ contract AccountV2 is
         view
         returns (bytes4 magicValue)
     {
+        _handleOverrideStatic();
+
         bool isValid = SignatureChecker.isValidSignatureNow(
             owner(),
             hash,
@@ -206,18 +197,22 @@ contract AccountV2 is
         )
     {
         address self = address(this);
+        uint256 length = self.code.length;
+        if (length < 0x60) return (0, address(0), 0);
+
         return
             abi.decode(
-                Bytecode.codeAt(
-                    self,
-                    self.code.length - 0x60,
-                    self.code.length
-                ),
+                Bytecode.codeAt(self, length - 0x60, length),
                 (uint256, address, uint256)
             );
     }
 
-    function nonce() public view override returns (uint256) {
+    function nonce()
+        public
+        view
+        override(BaseAccount, IERC6551Account)
+        returns (uint256)
+    {
         return _nonce;
     }
 
@@ -251,7 +246,9 @@ contract AccountV2 is
         if (caller == _entryPoint) return true;
 
         // authorize trusted cross-chain executors if not on native chain
-        if (chainId != block.chainid && trustedExecutors[caller]) return true;
+        AccountV2 implementation = AccountV2(payable(_getImplementation()));
+        if (chainId != block.chainid && implementation.trustedExecutors(caller))
+            return true;
 
         // authorize caller if owner has granted permissions for function call
         if (permissions[_owner][caller][selector]) return true;
@@ -277,13 +274,14 @@ contract AccountV2 is
         bool defaultSupport = interfaceId == type(IERC165).interfaceId ||
             interfaceId == type(IERC1155Receiver).interfaceId ||
             interfaceId == type(IERC6551Account).interfaceId ||
-            interfaceId == type(IAccount).interfaceId;
+            interfaceId == type(IERC4337Account).interfaceId;
 
         if (defaultSupport) return true;
 
         // if not supported by default, check override
-        bytes memory result = _callOverrideStatic();
-        return abi.decode(result, (bool));
+        _handleOverrideStatic();
+
+        return false;
     }
 
     function onERC721Received(
@@ -292,8 +290,7 @@ contract AccountV2 is
         uint256,
         bytes memory
     ) public view override returns (bytes4) {
-        bytes memory result = _callOverrideStatic();
-        if (result.length != 0) return abi.decode(result, (bytes4));
+        _handleOverrideStatic();
 
         return this.onERC721Received.selector;
     }
@@ -305,8 +302,7 @@ contract AccountV2 is
         uint256,
         bytes memory
     ) public view override returns (bytes4) {
-        bytes memory result = _callOverrideStatic();
-        if (result.length != 0) return abi.decode(result, (bytes4));
+        _handleOverrideStatic();
 
         return this.onERC1155Received.selector;
     }
@@ -318,8 +314,7 @@ contract AccountV2 is
         uint256[] memory,
         bytes memory
     ) public view override returns (bytes4) {
-        bytes memory result = _callOverrideStatic();
-        if (result.length != 0) return abi.decode(result, (bytes4));
+        _handleOverrideStatic();
 
         return this.onERC1155BatchReceived.selector;
     }
@@ -374,11 +369,14 @@ contract AccountV2 is
         }
     }
 
-    function _callOverride() internal returns (bytes memory result) {
+    function _handleOverride() internal returns (bytes memory result) {
         address implementation = overrides[owner()][msg.sig];
 
         if (implementation != address(0)) {
             result = _call(implementation, msg.value, msg.data);
+            assembly {
+                return(add(result, 32), mload(result))
+            }
         }
     }
 
@@ -397,11 +395,18 @@ contract AccountV2 is
         }
     }
 
-    function _callOverrideStatic() internal view returns (bytes memory result) {
+    function _handleOverrideStatic()
+        internal
+        view
+        returns (bytes memory result)
+    {
         address implementation = overrides[owner()][msg.sig];
 
         if (implementation != address(0)) {
             result = _callStatic(implementation, msg.data);
+            assembly {
+                return(add(result, 32), mload(result))
+            }
         }
     }
 }
