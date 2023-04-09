@@ -12,6 +12,7 @@ import "erc6551/interfaces/IERC6551Account.sol";
 import "../src/CrossChainExecutorList.sol";
 import "../src/Account.sol";
 import "../src/AccountV2.sol";
+import "../src/AccountGuardian.sol";
 import "../src/AccountRegistry.sol";
 
 import "./mocks/MockERC721.sol";
@@ -20,12 +21,14 @@ import "./mocks/MockReverter.sol";
 
 contract AccountV2Test is Test {
     AccountV2 implementation;
+    AccountGuardian public guardian;
     ERC6551Registry public registry;
 
     MockERC721 public tokenCollection;
 
     function setUp() public {
-        implementation = new AccountV2(address(this), address(0));
+        guardian = new AccountGuardian();
+        implementation = new AccountV2(address(guardian), address(0));
 
         registry = new ERC6551Registry();
 
@@ -64,7 +67,7 @@ contract AccountV2Test is Test {
         implementations[0] = vm.addr(1337);
         vm.prank(user2);
         vm.expectRevert(NotAuthorized.selector);
-        account.grantPermissions(selectors, implementations);
+        account.setPermissions(selectors, implementations);
 
         // should fail if user2 tries to lock account
         vm.prank(user2);
@@ -330,7 +333,7 @@ contract AccountV2Test is Test {
         address[] memory implementations = new address[](1);
         implementations[0] = address(user2);
         vm.prank(user1);
-        account.grantPermissions(selectors, implementations);
+        account.setPermissions(selectors, implementations);
 
         assertEq(account.isAuthorized(user2, selector), true);
 
@@ -369,7 +372,7 @@ contract AccountV2Test is Test {
 
         assertEq(account.isAuthorized(crossChainExecutor, selector), false);
 
-        implementation.setTrustedExecutor(crossChainExecutor, true);
+        guardian.setTrustedExecutor(crossChainExecutor, true);
 
         assertEq(account.isAuthorized(crossChainExecutor, selector), true);
 

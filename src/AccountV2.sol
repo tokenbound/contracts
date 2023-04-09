@@ -10,11 +10,11 @@ import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
 import "openzeppelin-contracts/interfaces/IERC1271.sol";
 import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 import "openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
-import "openzeppelin-contracts/access/AccessControl.sol";
-
-import {BaseAccount, IEntryPoint, UserOperation, IAccount as IERC4337Account} from "account-abstraction/core/BaseAccount.sol";
 
 import "sstore2/utils/Bytecode.sol";
+import {BaseAccount as BaseERC4337Account, IEntryPoint, UserOperation, IAccount as IERC4337Account} from "account-abstraction/core/BaseAccount.sol";
+
+import "./interfaces/IAccountGuardian.sol";
 
 error NotAuthorized();
 error InvalidInput();
@@ -29,26 +29,19 @@ contract AccountV2 is
     IERC6551Account,
     IERC721Receiver,
     IERC1155Receiver,
-    UUPSUpgradeable,
-    BaseAccount
+    BaseERC4337Account
 {
     // @dev ERC-4337 entry point
     address immutable _entryPoint;
 
+    // @dev AccountGuardian contract
+    address public immutable guardian;
+
     // @dev Updated on each transaction
     uint256 _nonce;
 
-    // @dev address that manages upgrade and cross-chain execution settings
-    address public guardian;
-
     // @dev timestamp at which this account will be unlocked
     uint256 public lockedUntil;
-
-    // @dev mapping from cross-chain executor => is trusted
-    mapping(address => bool) public trustedExecutors;
-
-    // @dev mapping from implementation => is trusted
-    mapping(address => bool) public trustedImplementations;
 
     // @dev mapping from owner => selector => implementation
     mapping(address => mapping(bytes4 => address)) public overrides;
@@ -56,11 +49,6 @@ contract AccountV2 is
     // @dev mapping from owner => caller => selector => has permissions
     mapping(address => mapping(address => mapping(bytes4 => bool)))
         public permissions;
-
-    modifier onlyGuardian() {
-        if (msg.sender != guardian) revert NotAuthorized();
-        _;
-    }
 
     modifier onlyOwner() {
         if (msg.sender != owner()) revert NotAuthorized();
@@ -86,7 +74,7 @@ contract AccountV2 is
         _handleOverride();
     }
 
-    fallback() external payable onlyUnlocked {
+    fallback() external payable {
         _handleOverride();
     }
 
@@ -95,8 +83,6 @@ contract AccountV2 is
         uint256 value,
         bytes calldata data
     ) external payable onlyAuthorized onlyUnlocked returns (bytes memory) {
-        if (!isAuthorized(msg.sender, msg.sig)) revert NotAuthorized();
-
         ++_nonce;
 
         _handleOverride();
@@ -107,7 +93,7 @@ contract AccountV2 is
     function setOverrides(
         bytes4[] calldata selectors,
         address[] calldata implementations
-    ) external onlyOwner onlyUnlocked {
+    ) external onlyUnlocked {
         address _owner = owner();
         if (msg.sender != _owner) revert NotAuthorized();
 
@@ -120,10 +106,10 @@ contract AccountV2 is
         }
     }
 
-    function grantPermissions(
+    function setPermissions(
         bytes4[] calldata selectors,
         address[] calldata implementations
-    ) external onlyOwner onlyUnlocked {
+    ) external onlyUnlocked {
         address _owner = owner();
         if (msg.sender != _owner) revert NotAuthorized();
 
@@ -140,27 +126,9 @@ contract AccountV2 is
         if (_lockedUntil > block.timestamp + 365 days)
             revert ExceedsMaxLockTime();
 
+        ++_nonce;
+
         lockedUntil = _lockedUntil;
-    }
-
-    function setTrustedImplementation(address implementation, bool trusted)
-        external
-        notDelegated
-        onlyGuardian
-    {
-        trustedImplementations[implementation] = trusted;
-    }
-
-    function setTrustedExecutor(address executor, bool trusted)
-        external
-        notDelegated
-        onlyGuardian
-    {
-        trustedExecutors[executor] = trusted;
-    }
-
-    function setGuardian(address _guardian) external notDelegated onlyGuardian {
-        guardian = _guardian;
     }
 
     function isLocked() public view returns (bool) {
@@ -210,7 +178,7 @@ contract AccountV2 is
     function nonce()
         public
         view
-        override(BaseAccount, IERC6551Account)
+        override(BaseERC4337Account, IERC6551Account)
         returns (uint256)
     {
         return _nonce;
@@ -245,24 +213,16 @@ contract AccountV2 is
         // authorize entrypoint for 4337 transactions
         if (caller == _entryPoint) return true;
 
-        // authorize trusted cross-chain executors if not on native chain
-        AccountV2 implementation = AccountV2(payable(_getImplementation()));
-        if (chainId != block.chainid && implementation.trustedExecutors(caller))
-            return true;
-
         // authorize caller if owner has granted permissions for function call
         if (permissions[_owner][caller][selector]) return true;
 
-        return false;
-    }
+        // authorize trusted cross-chain executors if not on native chain
+        if (
+            chainId != block.chainid &&
+            IAccountGuardian(guardian).isTrustedExecutor(caller)
+        ) return true;
 
-    function isTrustedImplementation(address implementation)
-        external
-        view
-        notDelegated
-        returns (bool)
-    {
-        return trustedImplementations[implementation];
+        return false;
     }
 
     function supportsInterface(bytes4 interfaceId)
@@ -322,12 +282,12 @@ contract AccountV2 is
     function _authorizeUpgrade(address newImplementation)
         internal
         view
-        override
         onlyOwner
     {
-        AccountV2 implementation = AccountV2(payable(_getImplementation()));
-        if (!implementation.isTrustedImplementation(newImplementation))
-            revert UntrustedImplementation();
+        bool isTrusted = IAccountGuardian(guardian).isTrustedImplementation(
+            newImplementation
+        );
+        if (!isTrusted) revert UntrustedImplementation();
     }
 
     function _validateSignature(
@@ -369,11 +329,11 @@ contract AccountV2 is
         }
     }
 
-    function _handleOverride() internal returns (bytes memory result) {
+    function _handleOverride() internal {
         address implementation = overrides[owner()][msg.sig];
 
         if (implementation != address(0)) {
-            result = _call(implementation, msg.value, msg.data);
+            bytes memory result = _call(implementation, msg.value, msg.data);
             assembly {
                 return(add(result, 32), mload(result))
             }
@@ -395,15 +355,11 @@ contract AccountV2 is
         }
     }
 
-    function _handleOverrideStatic()
-        internal
-        view
-        returns (bytes memory result)
-    {
+    function _handleOverrideStatic() internal view {
         address implementation = overrides[owner()][msg.sig];
 
         if (implementation != address(0)) {
-            result = _callStatic(implementation, msg.data);
+            bytes memory result = _callStatic(implementation, msg.data);
             assembly {
                 return(add(result, 32), mload(result))
             }
