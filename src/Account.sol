@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "erc6551/interfaces/IERC6551Account.sol";
+import "erc6551/lib/ERC6551AccountByteCode.sol";
 
 import "openzeppelin-contracts/utils/introspection/IERC165.sol";
 import "openzeppelin-contracts/token/ERC721/IERC721.sol";
@@ -22,6 +23,8 @@ error AccountLocked();
 error ExceedsMaxLockTime();
 error InvalidNonce();
 error UntrustedImplementation();
+error OwnershipCycle();
+error OwnershipDepthLimitExceeded();
 
 /**
  * @title A smart contract wallet owned by a single ERC721 token
@@ -40,9 +43,6 @@ contract Account is
 
     // @dev AccountGuardian contract
     address public immutable guardian;
-
-    // @dev Updated on each transaction
-    uint256 _nonce;
 
     // @dev timestamp at which this account will be unlocked
     uint256 public lockedUntil;
@@ -93,9 +93,7 @@ contract Account is
         onlyUnlocked
         returns (bytes memory result)
     {
-        ++_nonce;
-
-        _handleOverride();
+        _incrementNonce();
 
         result = _call(to, value, data);
 
@@ -111,7 +109,7 @@ contract Account is
 
         if (selectors.length != implementations.length) revert InvalidInput();
 
-        ++_nonce;
+        _incrementNonce();
 
         for (uint256 i = 0; i < selectors.length; i++) {
             overrides[_owner][selectors[i]] = implementations[i];
@@ -127,7 +125,7 @@ contract Account is
 
         if (selectors.length != implementations.length) revert InvalidInput();
 
-        ++_nonce;
+        _incrementNonce();
 
         for (uint256 i = 0; i < selectors.length; i++) {
             permissions[_owner][implementations[i]][selectors[i]] = true;
@@ -138,7 +136,7 @@ contract Account is
         if (_lockedUntil > block.timestamp + 365 days)
             revert ExceedsMaxLockTime();
 
-        ++_nonce;
+        _incrementNonce();
 
         lockedUntil = _lockedUntil;
     }
@@ -187,13 +185,13 @@ contract Account is
             );
     }
 
-    function nonce()
-        public
-        view
-        override(BaseERC4337Account, IERC6551Account)
-        returns (uint256)
-    {
-        return _nonce;
+    function nonce() public view override returns (uint256) {
+        return IEntryPoint(_entryPoint).getNonce(address(this), 0);
+    }
+
+    function _incrementNonce() internal {
+        if (msg.sender != _entryPoint)
+            IEntryPoint(_entryPoint).incrementNonce(0);
     }
 
     function entryPoint() public view override returns (IEntryPoint) {
@@ -214,16 +212,15 @@ contract Account is
         view
         returns (bool)
     {
+        // authorize entrypoint for 4337 transactions
+        if (caller == _entryPoint) return true;
+
         (uint256 chainId, address tokenContract, uint256 tokenId) = this
             .token();
-
         address _owner = IERC721(tokenContract).ownerOf(tokenId);
 
         // authorize token owner
         if (caller == _owner) return true;
-
-        // authorize entrypoint for 4337 transactions
-        if (caller == _entryPoint) return true;
 
         // authorize caller if owner has granted permissions for function call
         if (permissions[_owner][caller][selector]) return true;
@@ -258,9 +255,11 @@ contract Account is
     function onERC721Received(
         address,
         address,
-        uint256,
+        uint256 tokenId,
         bytes memory
     ) public view override returns (bytes4) {
+        _revertIfOwnershipCycle(msg.sender, tokenId);
+
         _handleOverrideStatic();
 
         return this.onERC721Received.selector;
@@ -319,13 +318,6 @@ contract Account is
         return 1;
     }
 
-    function _validateAndUpdateNonce(UserOperation calldata userOp)
-        internal
-        override
-    {
-        if (_nonce++ != userOp.nonce) revert InvalidNonce();
-    }
-
     function _call(
         address to,
         uint256 value,
@@ -376,5 +368,38 @@ contract Account is
                 return(add(result, 32), mload(result))
             }
         }
+    }
+
+    function _revertIfOwnershipCycle(
+        address receivedTokenAddress,
+        uint256 receivedTokenId
+    ) internal view {
+        address currentOwner = address(this);
+        uint256 depth = 0;
+
+        do {
+            try IERC6551Account(payable(currentOwner)).token() returns (
+                uint256 chainId,
+                address tokenAddress,
+                uint256 tokenId
+            ) {
+                if (
+                    chainId == block.chainid &&
+                    tokenAddress == receivedTokenAddress &&
+                    tokenId == receivedTokenId
+                ) revert OwnershipCycle();
+
+                // Advance up the ownership chain
+                currentOwner = IERC721(tokenAddress).ownerOf(tokenId);
+
+                unchecked {
+                    depth++;
+                }
+            } catch {
+                break;
+            }
+        } while (depth < 5 && currentOwner.code.length > 0);
+
+        if (depth == 5) revert OwnershipDepthLimitExceeded();
     }
 }

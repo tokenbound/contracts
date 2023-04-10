@@ -6,6 +6,8 @@ import "forge-std/Test.sol";
 import "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/proxy/Clones.sol";
 
+import "account-abstraction/core/EntryPoint.sol";
+
 import "erc6551/ERC6551Registry.sol";
 import "erc6551/interfaces/IERC6551Account.sol";
 
@@ -20,12 +22,14 @@ contract AccountTest is Test {
     Account implementation;
     AccountGuardian public guardian;
     ERC6551Registry public registry;
+    IEntryPoint public entryPoint;
 
     MockERC721 public tokenCollection;
 
     function setUp() public {
+        entryPoint = new EntryPoint();
         guardian = new AccountGuardian();
-        implementation = new Account(address(guardian), address(0));
+        implementation = new Account(address(guardian), address(entryPoint));
 
         registry = new ERC6551Registry();
 
