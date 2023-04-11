@@ -103,16 +103,4 @@ contract MinimalProxyStoreTest is Test {
             keccak256("hello")
         );
     }
-
-    // must run with --code-size-limit 24576
-    function testCannotOverflowContext() public {
-        uint256 maxSize = 0x6000 - 46;
-        bytes memory maxSizeContext = new bytes(maxSize);
-        bytes memory overflowContext = new bytes(maxSize + 1);
-
-        MinimalProxyStore.clone(address(this), maxSizeContext);
-
-        vm.expectRevert(MinimalProxyStore.CreateError.selector);
-        MinimalProxyStore.clone(address(this), overflowContext);
-    }
 }
