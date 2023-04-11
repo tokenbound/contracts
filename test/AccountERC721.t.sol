@@ -15,6 +15,7 @@ import "../src/Account.sol";
 import "../src/AccountGuardian.sol";
 
 import "./mocks/MockERC721.sol";
+import "./mocks/MockExecutor.sol";
 
 contract AccountERC721Test is Test {
     MockERC721 public dummyERC721;
@@ -245,5 +246,40 @@ contract AccountERC721Test is Test {
         vm.prank(owners[6]);
         vm.expectRevert(OwnershipDepthLimitExceeded.selector);
         tokenCollection.safeTransferFrom(owners[6], accounts[0], 7);
+    }
+
+    function testOverrideERC721Receiver(uint256 tokenId) public {
+        address user1 = vm.addr(1);
+
+        tokenCollection.mint(user1, tokenId);
+        assertEq(tokenCollection.ownerOf(tokenId), user1);
+
+        address accountAddress = registry.createAccount(
+            address(implementation),
+            block.chainid,
+            address(tokenCollection),
+            tokenId,
+            0,
+            ""
+        );
+
+        Account account = Account(payable(accountAddress));
+
+        MockExecutor mockExecutor = new MockExecutor();
+
+        // set overrides on account
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = bytes4(
+            abi.encodeWithSignature(
+                "onERC721Received(address,address,uint256,bytes)"
+            )
+        );
+        address[] memory implementations = new address[](1);
+        implementations[0] = address(mockExecutor);
+        vm.prank(user1);
+        account.setOverrides(selectors, implementations);
+
+        vm.expectRevert("ERC721: transfer to non ERC721Receiver implementer");
+        dummyERC721.mint(accountAddress, 1);
     }
 }

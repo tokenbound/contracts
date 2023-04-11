@@ -17,6 +17,7 @@ import "../src/AccountGuardian.sol";
 import "./mocks/MockERC721.sol";
 import "./mocks/MockExecutor.sol";
 import "./mocks/MockReverter.sol";
+import "./mocks/MockAccount.sol";
 
 contract AccountTest is Test {
     Account implementation;
@@ -302,6 +303,57 @@ contract AccountTest is Test {
         MockExecutor(accountAddress).fail();
     }
 
+    function testCustomOverridesSupportsInterface(uint256 tokenId) public {
+        address user1 = vm.addr(1);
+
+        tokenCollection.mint(user1, tokenId);
+        assertEq(tokenCollection.ownerOf(tokenId), user1);
+
+        address accountAddress = registry.createAccount(
+            address(implementation),
+            block.chainid,
+            address(tokenCollection),
+            tokenId,
+            0,
+            ""
+        );
+
+        vm.deal(accountAddress, 1 ether);
+
+        Account account = Account(payable(accountAddress));
+
+        assertEq(
+            account.supportsInterface(type(IERC1155Receiver).interfaceId),
+            true
+        );
+        assertEq(account.supportsInterface(0x12345678), false);
+
+        MockExecutor mockExecutor = new MockExecutor();
+
+        // set overrides on account
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = bytes4(
+            abi.encodeWithSignature("supportsInterface(bytes4)")
+        );
+        address[] memory implementations = new address[](1);
+        implementations[0] = address(mockExecutor);
+        vm.prank(user1);
+        account.setOverrides(selectors, implementations);
+
+        // override handles extra interface support
+        assertEq(
+            Account(payable(accountAddress)).supportsInterface(0x12345678),
+            true
+        );
+        // cannot override default interfaces
+        assertEq(
+            Account(payable(accountAddress)).supportsInterface(
+                type(IERC1155Receiver).interfaceId
+            ),
+            true
+        );
+    }
+
     /**/
     function testCustomPermissions(uint256 tokenId) public {
         address user1 = vm.addr(1);
@@ -474,5 +526,46 @@ contract AccountTest is Test {
             true
         );
         assertEq(account.supportsInterface(type(IERC165).interfaceId), true);
+        assertEq(account.supportsInterface(0x12345678), true);
+    }
+
+    function testAccountUpgrade() public {
+        uint256 tokenId = 1;
+        address user1 = vm.addr(1);
+
+        tokenCollection.mint(user1, tokenId);
+        assertEq(tokenCollection.ownerOf(tokenId), user1);
+
+        address accountAddress = registry.createAccount(
+            address(implementation),
+            block.chainid,
+            address(tokenCollection),
+            tokenId,
+            0,
+            ""
+        );
+
+        Account account = Account(payable(accountAddress));
+
+        MockAccount upgradedImplementation = new MockAccount(
+            address(guardian),
+            address(entryPoint)
+        );
+
+        vm.expectRevert(UntrustedImplementation.selector);
+        vm.prank(user1);
+        account.upgradeTo(address(upgradedImplementation));
+
+        guardian.setTrustedImplementation(
+            address(upgradedImplementation),
+            true
+        );
+
+        vm.prank(user1);
+        account.upgradeTo(address(upgradedImplementation));
+        uint256 returnValue = MockAccount(payable(accountAddress))
+            .customFunction();
+
+        assertEq(returnValue, 12345);
     }
 }

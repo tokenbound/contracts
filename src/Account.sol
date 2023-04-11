@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+import "forge-std/console.sol";
+
 import "erc6551/interfaces/IERC6551Account.sol";
 import "erc6551/lib/ERC6551AccountByteCode.sol";
 
+import "openzeppelin-contracts/utils/cryptography/ECDSA.sol";
 import "openzeppelin-contracts/utils/introspection/IERC165.sol";
 import "openzeppelin-contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/token/ERC721/IERC721Receiver.sol";
@@ -38,6 +41,8 @@ contract Account is
     UUPSUpgradeable,
     BaseERC4337Account
 {
+    using ECDSA for bytes32;
+
     // @dev ERC-4337 entry point
     address immutable _entryPoint;
 
@@ -174,15 +179,16 @@ contract Account is
             uint256 tokenId
         )
     {
-        address self = address(this);
-        uint256 length = self.code.length;
-        if (length < 0x60) return (0, address(0), 0);
+        bytes memory footer = new bytes(0x60);
 
-        return
-            abi.decode(
-                Bytecode.codeAt(self, length - 0x60, length),
-                (uint256, address, uint256)
-            );
+        assembly {
+            let size := extcodesize(address())
+            if gt(size, 0x60) {
+                extcodecopy(address(), add(footer, 0x20), sub(size, 0x60), size)
+            }
+        }
+
+        return abi.decode(footer, (uint256, address, uint256));
     }
 
     function nonce() public view override returns (uint256) {
@@ -305,11 +311,10 @@ contract Account is
         UserOperation calldata userOp,
         bytes32 userOpHash
     ) internal view override returns (uint256 validationData) {
-        bool isValid = SignatureChecker.isValidSignatureNow(
-            owner(),
-            userOpHash,
+        bool isValid = this.isValidSignature(
+            userOpHash.toEthSignedMessageHash(),
             userOp.signature
-        );
+        ) == IERC1271.isValidSignature.selector;
 
         if (isValid) {
             return 0;
@@ -389,8 +394,9 @@ contract Account is
                     tokenId == receivedTokenId
                 ) revert OwnershipCycle();
 
-                // Advance up the ownership chain
                 currentOwner = IERC721(tokenAddress).ownerOf(tokenId);
+
+                if (currentOwner == address(this)) revert OwnershipCycle();
 
                 unchecked {
                     depth++;
