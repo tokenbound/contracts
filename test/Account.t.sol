@@ -526,7 +526,6 @@ contract AccountTest is Test {
             true
         );
         assertEq(account.supportsInterface(type(IERC165).interfaceId), true);
-        assertEq(account.supportsInterface(0x12345678), true);
     }
 
     function testAccountUpgrade() public {

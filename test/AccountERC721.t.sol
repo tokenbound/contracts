@@ -243,8 +243,8 @@ contract AccountERC721Test is Test {
             );
         }
 
+        // Executes without error because cycle protection max depth has been exceeded
         vm.prank(owners[6]);
-        vm.expectRevert(OwnershipDepthLimitExceeded.selector);
         tokenCollection.safeTransferFrom(owners[6], accounts[0], 7);
     }
 

@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "forge-std/console.sol";
-
 import "erc6551/interfaces/IERC6551Account.sol";
-import "erc6551/lib/ERC6551AccountByteCode.sol";
 
 import "openzeppelin-contracts/utils/cryptography/ECDSA.sol";
 import "openzeppelin-contracts/utils/introspection/IERC165.sol";
@@ -15,8 +12,7 @@ import "openzeppelin-contracts/interfaces/IERC1271.sol";
 import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 import "openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 
-import "sstore2/utils/Bytecode.sol";
-import {BaseAccount as BaseERC4337Account, IEntryPoint, UserOperation, IAccount as IERC4337Account} from "account-abstraction/core/BaseAccount.sol";
+import {BaseAccount as BaseERC4337Account, IEntryPoint, UserOperation} from "account-abstraction/core/BaseAccount.sol";
 
 import "./interfaces/IAccountGuardian.sol";
 
@@ -24,10 +20,8 @@ error NotAuthorized();
 error InvalidInput();
 error AccountLocked();
 error ExceedsMaxLockTime();
-error InvalidNonce();
 error UntrustedImplementation();
 error OwnershipCycle();
-error OwnershipDepthLimitExceeded();
 
 /**
  * @title A smart contract wallet owned by a single ERC721 token
@@ -405,7 +399,5 @@ contract Account is
                 break;
             }
         } while (depth < 5 && currentOwner.code.length > 0);
-
-        if (depth == 5) revert OwnershipDepthLimitExceeded();
     }
 }
