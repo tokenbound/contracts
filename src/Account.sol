@@ -25,7 +25,7 @@ error UntrustedImplementation();
 error OwnershipCycle();
 
 /**
- * @title A smart contract wallet owned by a single ERC721 token
+ * @title A smart contract account owned by a single ERC721 token
  */
 contract Account is
     IERC165,
@@ -38,31 +38,34 @@ contract Account is
 {
     using ECDSA for bytes32;
 
-    // @dev ERC-4337 entry point
+    /// @dev ERC-4337 entry point address
     address immutable _entryPoint;
 
-    // @dev AccountGuardian contract
+    /// @dev AccountGuardian contract address
     address public immutable guardian;
 
-    // @dev timestamp at which this account will be unlocked
+    /// @dev timestamp at which this account will be unlocked
     uint256 public lockedUntil;
 
-    // @dev mapping from owner => selector => implementation
+    /// @dev mapping from owner => selector => implementation
     mapping(address => mapping(bytes4 => address)) public overrides;
 
-    // @dev mapping from owner => caller => has permissions
+    /// @dev mapping from owner => caller => has permissions
     mapping(address => mapping(address => bool)) public permissions;
 
+    /// @dev reverts if caller is not the owner of the account
     modifier onlyOwner() {
         if (msg.sender != owner()) revert NotAuthorized();
         _;
     }
 
+    /// @dev reverts if caller is not authorized to execute on this account
     modifier onlyAuthorized() {
         if (!isAuthorized(msg.sender)) revert NotAuthorized();
         _;
     }
 
+    /// @dev reverts if this account is currently locked
     modifier onlyUnlocked() {
         if (isLocked()) revert AccountLocked();
         _;
@@ -73,14 +76,17 @@ contract Account is
         guardian = _guardian;
     }
 
+    /// @dev allows eth transfers by default, but allows account owner to override
     receive() external payable {
         _handleOverride();
     }
 
+    /// @dev allows account owner to add additional functions to the account via an override
     fallback() external payable {
         _handleOverride();
     }
 
+    /// @dev executes a low-level call against an account if the caller is authorized to make calls
     function executeCall(
         address to,
         uint256 value,
@@ -99,6 +105,7 @@ contract Account is
         emit TransactionExecuted(to, value, data);
     }
 
+    /// @dev sets the implementation address for a given function call
     function setOverrides(
         bytes4[] calldata selectors,
         address[] calldata implementations
@@ -115,6 +122,7 @@ contract Account is
         }
     }
 
+    /// @dev grants a given caller execution permissions
     function setPermissions(
         address[] calldata callers,
         bool[] calldata _permissions
@@ -131,6 +139,7 @@ contract Account is
         }
     }
 
+    /// @dev locks the account until a certain timestamp
     function lock(uint256 _lockedUntil) external onlyOwner onlyUnlocked {
         if (_lockedUntil > block.timestamp + 365 days)
             revert ExceedsMaxLockTime();
@@ -140,10 +149,13 @@ contract Account is
         lockedUntil = _lockedUntil;
     }
 
+    /// @dev returns the current lock status of the account as a boolean
     function isLocked() public view returns (bool) {
         return lockedUntil > block.timestamp;
     }
 
+    /// @dev EIP-1271 signature validation. By default, only the owner of the account is permissioned to sign.
+    /// This function can be overriden.
     function isValidSignature(bytes32 hash, bytes memory signature)
         external
         view
@@ -164,6 +176,8 @@ contract Account is
         return "";
     }
 
+    /// @dev Returns the EIP-155 chain ID, token contract address, and token ID for the token that
+    /// owns this account.
     function token()
         external
         view
@@ -176,19 +190,24 @@ contract Account is
         return ERC6551AccountBytecode.token();
     }
 
+    /// @dev Returns the current account nonce
     function nonce() public view override returns (uint256) {
         return IEntryPoint(_entryPoint).getNonce(address(this), 0);
     }
 
+    /// @dev Increments the account nonce if the caller is not the ERC-4337 entry point
     function _incrementNonce() internal {
         if (msg.sender != _entryPoint)
             IEntryPoint(_entryPoint).incrementNonce(0);
     }
 
+    /// @dev Return the ERC-4337 entry point address
     function entryPoint() public view override returns (IEntryPoint) {
         return IEntryPoint(_entryPoint);
     }
 
+    /// @dev Returns the owner of the ERC-721 token which owns this account. By default, the owner
+    /// of the token has full permissions on the account.
     function owner() public view returns (address) {
         (
             uint256 chainId,
@@ -201,6 +220,7 @@ contract Account is
         return IERC721(tokenContract).ownerOf(tokenId);
     }
 
+    /// @dev Returns the authorization status for a given caller
     function isAuthorized(address caller) public view returns (bool) {
         // authorize entrypoint for 4337 transactions
         if (caller == _entryPoint) return true;
@@ -227,6 +247,8 @@ contract Account is
         return false;
     }
 
+    /// @dev Returns true if a given interfaceId is supported by this account. This method can be
+    /// extended by an override.
     function supportsInterface(bytes4 interfaceId)
         public
         view
@@ -245,19 +267,22 @@ contract Account is
         return false;
     }
 
+    /// @dev Allows ERC-721 tokens to be received so long as they do not cause an ownership cycle.
+    /// This function can be overriden.
     function onERC721Received(
         address,
         address,
         uint256 tokenId,
         bytes memory
     ) public view override returns (bytes4) {
-        _revertIfOwnershipCycle(msg.sender, tokenId);
-
         _handleOverrideStatic();
+
+        _revertIfOwnershipCycle(msg.sender, tokenId);
 
         return this.onERC721Received.selector;
     }
 
+    /// @dev Allows ERC-1155 tokens to be received. This function can be overriden.
     function onERC1155Received(
         address,
         address,
@@ -270,6 +295,7 @@ contract Account is
         return this.onERC1155Received.selector;
     }
 
+    /// @dev Allows ERC-1155 token batches to be received. This function can be overriden.
     function onERC1155BatchReceived(
         address,
         address,
@@ -282,6 +308,8 @@ contract Account is
         return this.onERC1155BatchReceived.selector;
     }
 
+    /// @dev Contract upgrades can only be performed by the owner and the new implementation must
+    /// be trusted
     function _authorizeUpgrade(address newImplementation)
         internal
         view
@@ -294,6 +322,7 @@ contract Account is
         if (!isTrusted) revert UntrustedImplementation();
     }
 
+    /// @dev Validates a signature for a given ERC-4337 operation
     function _validateSignature(
         UserOperation calldata userOp,
         bytes32 userOpHash
@@ -310,6 +339,7 @@ contract Account is
         return 1;
     }
 
+    /// @dev Executes a low-level call
     function _call(
         address to,
         uint256 value,
@@ -325,6 +355,7 @@ contract Account is
         }
     }
 
+    /// @dev Executes a low-level call to the implementation if an override is set
     function _handleOverride() internal {
         address implementation = overrides[owner()][msg.sig];
 
@@ -336,6 +367,7 @@ contract Account is
         }
     }
 
+    /// @dev Executes a low-level static call
     function _callStatic(address to, bytes calldata data)
         internal
         view
@@ -351,6 +383,7 @@ contract Account is
         }
     }
 
+    /// @dev Executes a low-level static call to the implementation if an override is set
     function _handleOverrideStatic() internal view {
         address implementation = overrides[owner()][msg.sig];
 
@@ -362,6 +395,7 @@ contract Account is
         }
     }
 
+    /// @dev Reverts if reception of a given ERC-721 token would cause an ownership cycle
     function _revertIfOwnershipCycle(
         address receivedTokenAddress,
         uint256 receivedTokenId
