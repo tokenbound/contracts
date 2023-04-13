@@ -50,9 +50,8 @@ contract Account is
     // @dev mapping from owner => selector => implementation
     mapping(address => mapping(bytes4 => address)) public overrides;
 
-    // @dev mapping from owner => caller => selector => has permissions
-    mapping(address => mapping(address => mapping(bytes4 => bool)))
-        public permissions;
+    // @dev mapping from owner => caller => has permissions
+    mapping(address => mapping(address => bool)) public permissions;
 
     modifier onlyOwner() {
         if (msg.sender != owner()) revert NotAuthorized();
@@ -60,7 +59,7 @@ contract Account is
     }
 
     modifier onlyAuthorized() {
-        if (!isAuthorized(msg.sender, msg.sig)) revert NotAuthorized();
+        if (!isAuthorized(msg.sender)) revert NotAuthorized();
         _;
     }
 
@@ -117,18 +116,18 @@ contract Account is
     }
 
     function setPermissions(
-        bytes4[] calldata selectors,
-        address[] calldata implementations
+        address[] calldata callers,
+        bool[] calldata _permissions
     ) external onlyUnlocked {
         address _owner = owner();
         if (msg.sender != _owner) revert NotAuthorized();
 
-        if (selectors.length != implementations.length) revert InvalidInput();
+        if (callers.length != _permissions.length) revert InvalidInput();
 
         _incrementNonce();
 
-        for (uint256 i = 0; i < selectors.length; i++) {
-            permissions[_owner][implementations[i]][selectors[i]] = true;
+        for (uint256 i = 0; i < callers.length; i++) {
+            permissions[_owner][callers[i]] = _permissions[i];
         }
     }
 
@@ -202,11 +201,7 @@ contract Account is
         return IERC721(tokenContract).ownerOf(tokenId);
     }
 
-    function isAuthorized(address caller, bytes4 selector)
-        public
-        view
-        returns (bool)
-    {
+    function isAuthorized(address caller) public view returns (bool) {
         // authorize entrypoint for 4337 transactions
         if (caller == _entryPoint) return true;
 
@@ -220,8 +215,8 @@ contract Account is
         // authorize token owner
         if (caller == _owner) return true;
 
-        // authorize caller if owner has granted permissions for function call
-        if (permissions[_owner][caller][selector]) return true;
+        // authorize caller if owner has granted permissions
+        if (permissions[_owner][caller]) return true;
 
         // authorize trusted cross-chain executors if not on native chain
         if (

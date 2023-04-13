@@ -63,13 +63,13 @@ contract AccountTest is Test {
         account.executeCall(payable(user2), 0.1 ether, "");
 
         // should fail if user2 tries to set override
-        bytes4[] memory selectors = new bytes4[](1);
-        selectors[0] = Account.executeCall.selector;
-        address[] memory implementations = new address[](1);
-        implementations[0] = vm.addr(1337);
+        address[] memory callers = new address[](1);
+        callers[0] = vm.addr(1337);
+        bool[] memory _permissions = new bool[](1);
+        _permissions[0] = true;
         vm.prank(user2);
         vm.expectRevert(NotAuthorized.selector);
-        account.setPermissions(selectors, implementations);
+        account.setPermissions(callers, _permissions);
 
         // should fail if user2 tries to lock account
         vm.prank(user2);
@@ -375,20 +375,16 @@ contract AccountTest is Test {
 
         Account account = Account(payable(accountAddress));
 
-        bytes4 selector = bytes4(
-            abi.encodeWithSignature("executeCall(address,uint256,bytes)")
-        );
+        assertEq(account.isAuthorized(user2), false);
 
-        assertEq(account.isAuthorized(user2, selector), false);
-
-        bytes4[] memory selectors = new bytes4[](1);
-        selectors[0] = selector;
-        address[] memory implementations = new address[](1);
-        implementations[0] = address(user2);
+        address[] memory callers = new address[](1);
+        callers[0] = address(user2);
+        bool[] memory _permissions = new bool[](1);
+        _permissions[0] = true;
         vm.prank(user1);
-        account.setPermissions(selectors, implementations);
+        account.setPermissions(callers, _permissions);
 
-        assertEq(account.isAuthorized(user2, selector), true);
+        assertEq(account.isAuthorized(user2), true);
 
         vm.prank(user2);
         account.executeCall(user2, 0.1 ether, "");
@@ -419,15 +415,11 @@ contract AccountTest is Test {
 
         Account account = Account(payable(accountAddress));
 
-        bytes4 selector = bytes4(
-            abi.encodeWithSignature("executeCall(address,uint256,bytes)")
-        );
-
-        assertEq(account.isAuthorized(crossChainExecutor, selector), false);
+        assertEq(account.isAuthorized(crossChainExecutor), false);
 
         guardian.setTrustedExecutor(crossChainExecutor, true);
 
-        assertEq(account.isAuthorized(crossChainExecutor, selector), true);
+        assertEq(account.isAuthorized(crossChainExecutor), true);
 
         vm.prank(crossChainExecutor);
         account.executeCall(user1, 0.1 ether, "");
