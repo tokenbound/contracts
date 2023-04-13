@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "erc6551/interfaces/IERC6551Account.sol";
+import "erc6551/lib/ERC6551AccountBytecode.sol";
 
 import "openzeppelin-contracts/utils/cryptography/ECDSA.sol";
 import "openzeppelin-contracts/utils/introspection/IERC165.sol";
@@ -173,16 +174,7 @@ contract Account is
             uint256 tokenId
         )
     {
-        bytes memory footer = new bytes(0x60);
-
-        assembly {
-            let size := extcodesize(address())
-            if gt(size, 0x60) {
-                extcodecopy(address(), add(footer, 0x20), sub(size, 0x60), size)
-            }
-        }
-
-        return abi.decode(footer, (uint256, address, uint256));
+        return ERC6551AccountBytecode.token();
     }
 
     function nonce() public view override returns (uint256) {
@@ -199,8 +191,11 @@ contract Account is
     }
 
     function owner() public view returns (address) {
-        (uint256 chainId, address tokenContract, uint256 tokenId) = this
-            .token();
+        (
+            uint256 chainId,
+            address tokenContract,
+            uint256 tokenId
+        ) = ERC6551AccountBytecode.token();
 
         if (chainId != block.chainid) return address(0);
 
@@ -215,8 +210,11 @@ contract Account is
         // authorize entrypoint for 4337 transactions
         if (caller == _entryPoint) return true;
 
-        (uint256 chainId, address tokenContract, uint256 tokenId) = this
-            .token();
+        (
+            uint256 chainId,
+            address tokenContract,
+            uint256 tokenId
+        ) = ERC6551AccountBytecode.token();
         address _owner = IERC721(tokenContract).ownerOf(tokenId);
 
         // authorize token owner

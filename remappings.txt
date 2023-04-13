@@ -5,4 +5,3 @@ erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/
 forge-std/=lib/forge-std/src/
 openzeppelin-contracts/=lib/openzeppelin-contracts/contracts/
 @openzeppelin/=lib/openzeppelin-contracts/
-sstore2/=lib/sstore2/contracts/
