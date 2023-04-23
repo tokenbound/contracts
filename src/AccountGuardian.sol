@@ -11,11 +11,15 @@ contract AccountGuardian is Ownable2Step {
     // @dev mapping from implementation => is trusted
     mapping(address => bool) public isTrustedExecutor;
 
+    event TrustedImplementationUpdated(address implementation, bool trusted);
+    event TrustedExecutorUpdated(address executor, bool trusted);
+
     function setTrustedImplementation(address implementation, bool trusted)
         external
         onlyOwner
     {
         isTrustedImplementation[implementation] = trusted;
+        emit TrustedImplementationUpdated(implementation, trusted);
     }
 
     function setTrustedExecutor(address executor, bool trusted)
@@ -23,5 +27,6 @@ contract AccountGuardian is Ownable2Step {
         onlyOwner
     {
         isTrustedExecutor[executor] = trusted;
+        emit TrustedExecutorUpdated(executor, trusted);
     }
 }

@@ -53,6 +53,16 @@ contract Account is
     /// @dev mapping from owner => caller => has permissions
     mapping(address => mapping(address => bool)) public permissions;
 
+    event OverrideUpdated(
+        address owner,
+        bytes4 selector,
+        address implementation
+    );
+
+    event PermissionUpdated(address owner, address caller, bool hasPermission);
+
+    event LockUpdated(uint256 lockedUntil);
+
     /// @dev reverts if caller is not the owner of the account
     modifier onlyOwner() {
         if (msg.sender != owner()) revert NotAuthorized();
@@ -94,18 +104,12 @@ contract Account is
         address to,
         uint256 value,
         bytes calldata data
-    )
-        external
-        payable
-        onlyAuthorized
-        onlyUnlocked
-        returns (bytes memory result)
-    {
+    ) external payable onlyAuthorized onlyUnlocked returns (bytes memory) {
+        emit TransactionExecuted(to, value, data);
+
         _incrementNonce();
 
-        result = _call(to, value, data);
-
-        emit TransactionExecuted(to, value, data);
+        return _call(to, value, data);
     }
 
     /// @dev sets the implementation address for a given function call
@@ -116,13 +120,16 @@ contract Account is
         address _owner = owner();
         if (msg.sender != _owner) revert NotAuthorized();
 
-        if (selectors.length != implementations.length) revert InvalidInput();
+        uint256 length = selectors.length;
+
+        if (implementations.length != length) revert InvalidInput();
+
+        for (uint256 i = 0; i < length; i++) {
+            overrides[_owner][selectors[i]] = implementations[i];
+            emit OverrideUpdated(_owner, selectors[i], implementations[i]);
+        }
 
         _incrementNonce();
-
-        for (uint256 i = 0; i < selectors.length; i++) {
-            overrides[_owner][selectors[i]] = implementations[i];
-        }
     }
 
     /// @dev grants a given caller execution permissions
@@ -133,13 +140,16 @@ contract Account is
         address _owner = owner();
         if (msg.sender != _owner) revert NotAuthorized();
 
-        if (callers.length != _permissions.length) revert InvalidInput();
+        uint256 length = callers.length;
+
+        if (_permissions.length != length) revert InvalidInput();
+
+        for (uint256 i = 0; i < length; i++) {
+            permissions[_owner][callers[i]] = _permissions[i];
+            emit PermissionUpdated(_owner, callers[i], _permissions[i]);
+        }
 
         _incrementNonce();
-
-        for (uint256 i = 0; i < callers.length; i++) {
-            permissions[_owner][callers[i]] = _permissions[i];
-        }
     }
 
     /// @dev locks the account until a certain timestamp
@@ -147,9 +157,11 @@ contract Account is
         if (_lockedUntil > block.timestamp + 365 days)
             revert ExceedsMaxLockTime();
 
-        _incrementNonce();
-
         lockedUntil = _lockedUntil;
+
+        emit LockUpdated(_lockedUntil);
+
+        _incrementNonce();
     }
 
     /// @dev returns the current lock status of the account as a boolean
