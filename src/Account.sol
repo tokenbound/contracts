@@ -72,6 +72,9 @@ contract Account is
     }
 
     constructor(address _guardian, address entryPoint_) {
+        if (_guardian == address(0) || entryPoint_ == address(0))
+            revert InvalidInput();
+
         _entryPoint = entryPoint_;
         guardian = _guardian;
     }
