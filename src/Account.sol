@@ -287,12 +287,22 @@ contract Account is
     function onERC721Received(
         address,
         address,
-        uint256 tokenId,
+        uint256 receivedTokenId,
         bytes memory
     ) public view override returns (bytes4) {
         _handleOverrideStatic();
 
-        _revertIfOwnershipCycle(msg.sender, tokenId);
+        (
+            uint256 chainId,
+            address tokenContract,
+            uint256 tokenId
+        ) = ERC6551AccountLib.token();
+
+        if (
+            chainId == block.chainid &&
+            tokenContract == msg.sender &&
+            tokenId == receivedTokenId
+        ) revert OwnershipCycle();
 
         return this.onERC721Received.selector;
     }
@@ -408,38 +418,5 @@ contract Account is
                 return(add(result, 32), mload(result))
             }
         }
-    }
-
-    /// @dev Reverts if reception of a given ERC-721 token would cause an ownership cycle
-    function _revertIfOwnershipCycle(
-        address receivedTokenAddress,
-        uint256 receivedTokenId
-    ) internal view {
-        address currentOwner = address(this);
-        uint256 depth = 0;
-
-        do {
-            try IERC6551Account(payable(currentOwner)).token() returns (
-                uint256 chainId,
-                address tokenAddress,
-                uint256 tokenId
-            ) {
-                if (
-                    chainId == block.chainid &&
-                    tokenAddress == receivedTokenAddress &&
-                    tokenId == receivedTokenId
-                ) revert OwnershipCycle();
-
-                currentOwner = IERC721(tokenAddress).ownerOf(tokenId);
-
-                if (currentOwner == address(this)) revert OwnershipCycle();
-
-                unchecked {
-                    depth++;
-                }
-            } catch {
-                break;
-            }
-        } while (depth < 5 && currentOwner.code.length > 0);
     }
 }
