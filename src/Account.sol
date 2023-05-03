@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "erc6551/interfaces/IERC6551Account.sol";
-import "erc6551/lib/ERC6551AccountBytecode.sol";
+import "erc6551/lib/ERC6551AccountLib.sol";
 
 import "openzeppelin-contracts/utils/cryptography/ECDSA.sol";
 import "openzeppelin-contracts/utils/introspection/IERC165.sol";
@@ -202,7 +202,7 @@ contract Account is
             uint256 tokenId
         )
     {
-        return ERC6551AccountBytecode.token();
+        return ERC6551AccountLib.token();
     }
 
     /// @dev Returns the current account nonce
@@ -228,7 +228,7 @@ contract Account is
             uint256 chainId,
             address tokenContract,
             uint256 tokenId
-        ) = ERC6551AccountBytecode.token();
+        ) = ERC6551AccountLib.token();
 
         if (chainId != block.chainid) return address(0);
 
@@ -244,7 +244,7 @@ contract Account is
             uint256 chainId,
             address tokenContract,
             uint256 tokenId
-        ) = ERC6551AccountBytecode.token();
+        ) = ERC6551AccountLib.token();
         address _owner = IERC721(tokenContract).ownerOf(tokenId);
 
         // authorize token owner

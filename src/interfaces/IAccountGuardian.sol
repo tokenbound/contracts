@@ -7,6 +7,8 @@ interface IAccountGuardian {
 
     function setTrustedExecutor(address executor, bool trusted) external;
 
+    function defaultImplementation() external view returns (address);
+
     function isTrustedImplementation(address implementation)
         external
         view

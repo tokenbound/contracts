@@ -13,6 +13,7 @@ import "erc6551/interfaces/IERC6551Account.sol";
 
 import "../src/Account.sol";
 import "../src/AccountGuardian.sol";
+import "../src/AccountProxy.sol";
 
 import "./mocks/MockERC721.sol";
 import "./mocks/MockExecutor.sol";
@@ -21,8 +22,9 @@ import "./mocks/MockAccount.sol";
 
 contract AccountTest is Test {
     Account implementation;
-    AccountGuardian public guardian;
     ERC6551Registry public registry;
+    AccountGuardian public guardian;
+    AccountProxy public proxy;
     IEntryPoint public entryPoint;
 
     MockERC721 public tokenCollection;
@@ -31,6 +33,9 @@ contract AccountTest is Test {
         entryPoint = new EntryPoint();
         guardian = new AccountGuardian();
         implementation = new Account(address(guardian), address(entryPoint));
+        proxy = new AccountProxy(address(guardian));
+
+        guardian.setDefaultImplementation(address(implementation));
 
         registry = new ERC6551Registry();
 
@@ -45,12 +50,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(implementation),
+            address(proxy),
             block.chainid,
             address(tokenCollection),
             tokenId,
             0,
-            ""
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -85,12 +90,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(implementation),
+            address(proxy),
             block.chainid,
             address(tokenCollection),
             tokenId,
             0,
-            ""
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -119,12 +124,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(implementation),
+            address(proxy),
             block.chainid,
             address(tokenCollection),
             tokenId,
             0,
-            ""
+            abi.encodeWithSignature("initialize()")
         );
 
         Account account = Account(payable(accountAddress));
@@ -148,12 +153,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(implementation),
+            address(proxy),
             block.chainid,
             address(tokenCollection),
             tokenId,
             0,
-            ""
+            abi.encodeWithSignature("initialize()")
         );
 
         Account account = Account(payable(accountAddress));
@@ -175,12 +180,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(implementation),
+            address(proxy),
             block.chainid,
             address(tokenCollection),
             tokenId,
             0,
-            ""
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -264,12 +269,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(implementation),
+            address(proxy),
             block.chainid,
             address(tokenCollection),
             tokenId,
             0,
-            ""
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -310,12 +315,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(implementation),
+            address(proxy),
             block.chainid,
             address(tokenCollection),
             tokenId,
             0,
-            ""
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -363,12 +368,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(implementation),
+            address(proxy),
             block.chainid,
             address(tokenCollection),
             tokenId,
             0,
-            ""
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -403,12 +408,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(implementation),
+            address(proxy),
             chainId,
             address(tokenCollection),
             tokenId,
             0,
-            ""
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -434,12 +439,12 @@ contract AccountTest is Test {
         assertEq(user1.balance, 0.1 ether);
 
         address nativeAccountAddress = registry.createAccount(
-            address(implementation),
+            address(proxy),
             block.chainid,
             address(tokenCollection),
             tokenId,
             0,
-            ""
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.prank(crossChainExecutor);
@@ -460,12 +465,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(implementation),
+            address(proxy),
             block.chainid,
             address(tokenCollection),
             tokenId,
             0,
-            ""
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -497,12 +502,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(implementation),
+            address(proxy),
             block.chainid,
             address(tokenCollection),
             tokenId,
             0,
-            ""
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -528,12 +533,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(implementation),
+            address(proxy),
             block.chainid,
             address(tokenCollection),
             tokenId,
             0,
-            ""
+            abi.encodeWithSignature("initialize()")
         );
 
         Account account = Account(payable(accountAddress));
