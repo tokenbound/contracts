@@ -39,7 +39,7 @@ contract Account is
     using ECDSA for bytes32;
 
     /// @dev ERC-4337 entry point address
-    address immutable _entryPoint;
+    address public immutable _entryPoint;
 
     /// @dev AccountGuardian contract address
     address public immutable guardian;

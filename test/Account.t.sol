@@ -33,9 +33,7 @@ contract AccountTest is Test {
         entryPoint = new EntryPoint();
         guardian = new AccountGuardian();
         implementation = new Account(address(guardian), address(entryPoint));
-        proxy = new AccountProxy(address(guardian));
-
-        guardian.setDefaultImplementation(address(implementation));
+        proxy = new AccountProxy(address(implementation));
 
         registry = new ERC6551Registry();
 

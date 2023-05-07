@@ -6,20 +6,18 @@ import "forge-std/console.sol";
 import "openzeppelin-contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 import "openzeppelin-contracts/proxy/Proxy.sol";
 
-import "./interfaces/IAccountGuardian.sol";
-
 contract AccountProxy is Proxy, ERC1967Upgrade {
-    IAccountGuardian immutable guardian;
+    address immutable defaultImplementation;
 
-    constructor(address _guardian) {
-        guardian = IAccountGuardian(_guardian);
+    constructor(address _defaultImplementation) {
+        defaultImplementation = _defaultImplementation;
     }
 
     function initialize() external {
         address implementation = ERC1967Upgrade._getImplementation();
 
         if (implementation == address(0)) {
-            ERC1967Upgrade._upgradeTo(guardian.defaultImplementation());
+            ERC1967Upgrade._upgradeTo(defaultImplementation);
         }
     }
 

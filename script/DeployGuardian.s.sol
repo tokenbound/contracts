@@ -7,7 +7,8 @@ import "../src/AccountGuardian.sol";
 
 contract DeployGuardian is Script {
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("TESTNET_GUARDIAN_DEPLOYER");
+        // DON'T FORGET TO CHANGE DEPLOYER KEY
+        uint256 deployerPrivateKey = vm.envUint("TESTNET_ACCOUNT_DEPLOYER");
         vm.startBroadcast(deployerPrivateKey);
 
         new AccountGuardian();
