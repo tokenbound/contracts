@@ -8,19 +8,19 @@ import "../src/AccountProxy.sol";
 
 contract DeployAccount is Script {
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("TESTNET_ACCOUNT_DEPLOYER");
+        uint256 deployerPrivateKey = vm.envUint("MAINNET_ACCOUNT_DEPLOYER");
         vm.startBroadcast(deployerPrivateKey);
 
-        Account implementation = new Account{
-            salt: 0x6551655165516551655165516551655165516551655165516551655165516551
-        }(
-            0xB0219b60f0535FB3B62eeEC51EC4C765d138Ac0A, // guardian
-            0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789 // entry point
-        );
+        /* Account implementation = new Account{ */
+        /*     salt: 0x6551655165516551655165516551655165516551655165516551655165516551 */
+        /* }( */
+        /*     0x2D4d71C69b5631b557a4de7bD8aF82e2202da856, // guardian */
+        /*     0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789 // entry point */
+        /* ); */
 
         new AccountProxy{
             salt: 0x6551655165516551655165516551655165516551655165516551655165516551
-        }(address(implementation));
+        }(0x1a0E97Dae78590b7E967E725a5c848eD034f5510);
 
         vm.stopBroadcast();
     }
