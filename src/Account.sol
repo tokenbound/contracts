@@ -55,7 +55,11 @@ contract Account is
     /// @dev mapping from owner => caller => has permissions
     mapping(address => mapping(address => bool)) public permissions;
 
-    event OverrideUpdated(address owner, bytes4 selector, address implementation);
+    event OverrideUpdated(
+        address owner,
+        bytes4 selector,
+        address implementation
+    );
 
     event PermissionUpdated(address owner, address caller, bool hasPermission);
 
