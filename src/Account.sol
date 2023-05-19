@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
-
+import "forge-std/console2.sol";
 import "erc6551/interfaces/IERC6551Account.sol";
 import "erc6551/lib/ERC6551AccountLib.sol";
 
@@ -45,6 +45,9 @@ contract Account is
 
     /// @dev EIP-712 version
     string public constant VERSION = "1";
+
+    /// @dev EIP-712 Type for UserOperation
+    bytes32 public immutable userOperationType;
 
     /// @dev ERC-4337 entry point address
     address public immutable _entryPoint;
@@ -98,6 +101,9 @@ contract Account is
 
         _entryPoint = entryPoint_;
         guardian = _guardian;
+        userOperationType = keccak256(
+                "UserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,uint256 callGasLimit,uint256 verificationGasLimit,uint256 preVerificationGas,uint256 maxFeePerGas,uint256 maxPriorityFeePerGas,bytes paymasterAndData,bytes32 userOpHash)"
+            );
     }
 
     /// @dev allows eth transfers by default, but allows account owner to override
@@ -363,23 +369,24 @@ contract Account is
         UserOperation calldata userOp,
         bytes32 userOpHash
     ) internal view override returns (uint256 validationData) {
+        UserOperation memory userOpMemory = userOp;
         bytes32 hashStruct = keccak256(
             abi.encode(
-                keccak256(
-                    "UserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,uint256 callGasLimit,uint256 verificationGasLimit,uint256 preVerificationGas,uint256 maxFeePerGas,uint256 maxPriorityFeePerGas,bytes paymasterAndData)"
-                ),
-                userOp.sender,
-                userOp.nonce,
-                userOp.initCode,
-                userOp.callData,
-                userOp.callGasLimit,
-                userOp.verificationGasLimit,
-                userOp.preVerificationGas,
-                userOp.maxFeePerGas,
-                userOp.maxPriorityFeePerGas,
-                userOp.paymasterAndData
+                userOperationType,
+                userOpMemory.sender,
+                userOpMemory.nonce,
+                userOpMemory.initCode,
+                userOpMemory.callData,
+                userOpMemory.callGasLimit,
+                userOpMemory.verificationGasLimit,
+                userOpMemory.preVerificationGas,
+                userOpMemory.maxFeePerGas,
+                userOpMemory.maxPriorityFeePerGas,
+                userOpMemory.paymasterAndData,
+                userOpHash
             )
         );
+        console2.logBytes32(hashStruct);
 
         bool isValid =
             this.isValidSignature(_hashTypedDataV4(hashStruct), userOp.signature) == IERC1271.isValidSignature.selector;

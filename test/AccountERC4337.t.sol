@@ -136,9 +136,9 @@ contract AccountERC4337Test is Test {
             paymasterAndData: "",
             signature: ""
         });
-        bytes32 opHash = _buildOpHash(op, accountAddress);
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, opHash);
+        bytes32 opHash = entryPoint.getUserOpHash(op);
+        bytes32 op712Hash = _buildOpHash(op, accountAddress, opHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, op712Hash);
 
         bytes memory signature = abi.encodePacked(r, s, v);
         op.signature = signature;
@@ -194,8 +194,9 @@ contract AccountERC4337Test is Test {
             signature: ""
         });
 
-        bytes32 opHash = _buildOpHash(op, accountAddress);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, opHash);
+        bytes32 opHash = entryPoint.getUserOpHash(op);
+        bytes32 op712Hash = _buildOpHash(op, accountAddress, opHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, op712Hash);
 
         bytes memory signature = abi.encodePacked(r, s, v);
         op.signature = signature;
@@ -251,8 +252,9 @@ contract AccountERC4337Test is Test {
             signature: ""
         });
 
-        bytes32 opHash = _buildOpHash(op, accountAddress);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, opHash);
+        bytes32 opHash = entryPoint.getUserOpHash(op);
+        bytes32 op712Hash = _buildOpHash(op, accountAddress, opHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, op712Hash);
 
         // invalidate signature
         bytes memory signature = abi.encodePacked(r, s, v + 1);
@@ -271,8 +273,9 @@ contract AccountERC4337Test is Test {
 
     function _buildOpHash(
         UserOperation memory op,
-        address accountAddress
-    ) private view returns (bytes32 opHash) {
+        address accountAddress,
+        bytes32 opHash
+    ) private view returns (bytes32 op712Hash) {
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 keccak256(
@@ -287,7 +290,7 @@ contract AccountERC4337Test is Test {
         bytes32 hashStruct = keccak256(
             abi.encode(
                 keccak256(
-                    "UserOp(address sender,uint256 nonce,bytes initCode,bytes callData,uint256 callGasLimit,uint256 verificationGasLimit,uint256 preVerificationGas,uint256 maxFeePerGas,uint256 maxPriorityFeePerGas,bytes paymasterAndData)"
+                    "UserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,uint256 callGasLimit,uint256 verificationGasLimit,uint256 preVerificationGas,uint256 maxFeePerGas,uint256 maxPriorityFeePerGas,bytes paymasterAndData,bytes32 userOpHash)"
                 ),
                 op.sender,
                 op.nonce,
@@ -298,9 +301,11 @@ contract AccountERC4337Test is Test {
                 op.preVerificationGas,
                 op.maxFeePerGas,
                 op.maxPriorityFeePerGas,
-                op.paymasterAndData
+                op.paymasterAndData,
+                opHash
             )
         );
-        opHash = ECDSA.toTypedDataHash(domainSeparator, hashStruct);
+        console2.logBytes32(hashStruct);
+        op712Hash = ECDSA.toTypedDataHash(domainSeparator, hashStruct);
     }
 }
