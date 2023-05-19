@@ -30,12 +30,7 @@ contract AccountERC4337Test is Test {
     function setUp() public {
         entryPoint = new EntryPoint();
         guardian = new AccountGuardian();
-        implementation = new Account(
-            address(guardian),
-            address(entryPoint),
-            "ERC6551-Account",
-            "1"
-        );
+        implementation = new Account(address(guardian), address(entryPoint));
 
         registry = new ERC6551Registry();
 

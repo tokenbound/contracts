@@ -40,6 +40,12 @@ contract Account is
 {
     using ECDSA for bytes32;
 
+    /// @dev EIP-712 name
+    string public constant NAME = "ERC6551-Account";
+
+    /// @dev EIP-712 version
+    string public constant VERSION = "1";
+
     /// @dev ERC-4337 entry point address
     address public immutable _entryPoint;
 
@@ -83,8 +89,8 @@ contract Account is
         _;
     }
 
-    constructor(address _guardian, address entryPoint_, string memory _name, string memory _version)
-        EIP712(_name, _version)
+    constructor(address _guardian, address entryPoint_)
+        EIP712(NAME, VERSION)
     {
         if (_guardian == address(0) || entryPoint_ == address(0)) {
             revert InvalidInput();
