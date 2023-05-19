@@ -32,12 +32,7 @@ contract AccountTest is Test {
     function setUp() public {
         entryPoint = new EntryPoint();
         guardian = new AccountGuardian();
-        implementation = new Account(
-            address(guardian),
-            address(entryPoint),
-            "ERC6551-Account",
-            "1"
-        );
+        implementation = new Account(address(guardian), address(entryPoint), "ERC6551-Account", "1");
         proxy = new AccountProxy(address(implementation));
 
         registry = new ERC6551Registry();
@@ -156,7 +151,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(proxy), block.chainid, address(tokenCollection), tokenId, 0, abi.encodeWithSignature("initialize()")
+            address(proxy),
+            block.chainid,
+            address(tokenCollection),
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         Account account = Account(payable(accountAddress));
@@ -178,7 +178,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(proxy), block.chainid, address(tokenCollection), tokenId, 0, abi.encodeWithSignature("initialize()")
+            address(proxy),
+            block.chainid,
+            address(tokenCollection),
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -205,7 +210,9 @@ contract AccountTest is Test {
         // fallback calls should revert if account is locked
         vm.prank(user1);
         vm.expectRevert(AccountLocked.selector);
-        (bool success, bytes memory result) = accountAddress.call(abi.encodeWithSignature("customFunction()"));
+        (bool success, bytes memory result) = accountAddress.call(
+            abi.encodeWithSignature("customFunction()")
+        );
 
         // silence unused variable compiler warnings
         success;
@@ -246,7 +253,10 @@ contract AccountTest is Test {
         bytes32 hashAfterUnlock = keccak256("This is a signed message");
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(1, hashAfterUnlock);
         bytes memory signature2 = abi.encodePacked(r2, s2, v2);
-        bytes4 returnValue1 = account.isValidSignature(hashAfterUnlock, signature2);
+        bytes4 returnValue1 = account.isValidSignature(
+            hashAfterUnlock,
+            signature2
+        );
         assertEq(returnValue1, IERC1271.isValidSignature.selector);
     }
 
@@ -257,7 +267,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(proxy), block.chainid, address(tokenCollection), tokenId, 0, abi.encodeWithSignature("initialize()")
+            address(proxy),
+            block.chainid,
+            address(tokenCollection),
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -267,7 +282,9 @@ contract AccountTest is Test {
         MockExecutor mockExecutor = new MockExecutor();
 
         // calls succeed with noop if override is undefined
-        (bool success, bytes memory result) = accountAddress.call(abi.encodeWithSignature("customFunction()"));
+        (bool success, bytes memory result) = accountAddress.call(
+            abi.encodeWithSignature("customFunction()")
+        );
         assertEq(success, true);
         assertEq(result, "");
 
@@ -296,30 +313,48 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(proxy), block.chainid, address(tokenCollection), tokenId, 0, abi.encodeWithSignature("initialize()")
+            address(proxy),
+            block.chainid,
+            address(tokenCollection),
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
 
         Account account = Account(payable(accountAddress));
 
-        assertEq(account.supportsInterface(type(IERC1155Receiver).interfaceId), true);
+        assertEq(
+            account.supportsInterface(type(IERC1155Receiver).interfaceId),
+            true
+        );
         assertEq(account.supportsInterface(0x12345678), false);
 
         MockExecutor mockExecutor = new MockExecutor();
 
         // set overrides on account
         bytes4[] memory selectors = new bytes4[](1);
-        selectors[0] = bytes4(abi.encodeWithSignature("supportsInterface(bytes4)"));
+        selectors[0] = bytes4(
+            abi.encodeWithSignature("supportsInterface(bytes4)")
+        );
         address[] memory implementations = new address[](1);
         implementations[0] = address(mockExecutor);
         vm.prank(user1);
         account.setOverrides(selectors, implementations);
 
         // override handles extra interface support
-        assertEq(Account(payable(accountAddress)).supportsInterface(0x12345678), true);
+        assertEq(
+            Account(payable(accountAddress)).supportsInterface(0x12345678),
+            true
+        );
         // cannot override default interfaces
-        assertEq(Account(payable(accountAddress)).supportsInterface(type(IERC1155Receiver).interfaceId), true);
+        assertEq(
+            Account(payable(accountAddress)).supportsInterface(
+                type(IERC1155Receiver).interfaceId
+            ),
+            true
+        );
     }
 
     /**/
@@ -331,7 +366,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(proxy), block.chainid, address(tokenCollection), tokenId, 0, abi.encodeWithSignature("initialize()")
+            address(proxy),
+            block.chainid,
+            address(tokenCollection),
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -366,7 +406,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(proxy), chainId, address(tokenCollection), tokenId, 0, abi.encodeWithSignature("initialize()")
+            address(proxy),
+            chainId,
+            address(tokenCollection),
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -392,12 +437,21 @@ contract AccountTest is Test {
         assertEq(user1.balance, 0.1 ether);
 
         address nativeAccountAddress = registry.createAccount(
-            address(proxy), block.chainid, address(tokenCollection), tokenId, 0, abi.encodeWithSignature("initialize()")
+            address(proxy),
+            block.chainid,
+            address(tokenCollection),
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.prank(crossChainExecutor);
         vm.expectRevert(NotAuthorized.selector);
-        Account(payable(nativeAccountAddress)).executeCall(user1, 0.1 ether, "");
+        Account(payable(nativeAccountAddress)).executeCall(
+            user1,
+            0.1 ether,
+            ""
+        );
 
         assertEq(user1.balance, 0.1 ether);
     }
@@ -409,7 +463,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(proxy), block.chainid, address(tokenCollection), tokenId, 0, abi.encodeWithSignature("initialize()")
+            address(proxy),
+            block.chainid,
+            address(tokenCollection),
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -420,7 +479,11 @@ contract AccountTest is Test {
 
         vm.prank(user1);
         vm.expectRevert(MockReverter.MockError.selector);
-        account.executeCall(payable(address(mockReverter)), 0, abi.encodeWithSignature("fail()"));
+        account.executeCall(
+            payable(address(mockReverter)),
+            0,
+            abi.encodeWithSignature("fail()")
+        );
     }
 
     function testAccountOwnerIsNullIfContextNotSet() public {
@@ -437,15 +500,26 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(proxy), block.chainid, address(tokenCollection), tokenId, 0, abi.encodeWithSignature("initialize()")
+            address(proxy),
+            block.chainid,
+            address(tokenCollection),
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
 
         Account account = Account(payable(accountAddress));
 
-        assertEq(account.supportsInterface(type(IERC6551Account).interfaceId), true);
-        assertEq(account.supportsInterface(type(IERC1155Receiver).interfaceId), true);
+        assertEq(
+            account.supportsInterface(type(IERC6551Account).interfaceId),
+            true
+        );
+        assertEq(
+            account.supportsInterface(type(IERC1155Receiver).interfaceId),
+            true
+        );
         assertEq(account.supportsInterface(type(IERC165).interfaceId), true);
     }
 
@@ -457,7 +531,12 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(proxy), block.chainid, address(tokenCollection), tokenId, 0, abi.encodeWithSignature("initialize()")
+            address(proxy),
+            block.chainid,
+            address(tokenCollection),
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         Account account = Account(payable(accountAddress));
@@ -473,11 +552,15 @@ contract AccountTest is Test {
         vm.prank(user1);
         account.upgradeTo(address(upgradedImplementation));
 
-        guardian.setTrustedImplementation(address(upgradedImplementation), true);
+        guardian.setTrustedImplementation(
+            address(upgradedImplementation),
+            true
+        );
 
         vm.prank(user1);
         account.upgradeTo(address(upgradedImplementation));
-        uint256 returnValue = MockAccount(payable(accountAddress)).customFunction();
+        uint256 returnValue = MockAccount(payable(accountAddress))
+            .customFunction();
 
         assertEq(returnValue, 12345);
     }
