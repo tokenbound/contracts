@@ -2,7 +2,6 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-
 import "openzeppelin-contracts/utils/cryptography/ECDSA.sol";
 import "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/proxy/Clones.sol";
@@ -137,7 +136,7 @@ contract AccountERC4337Test is Test {
             signature: ""
         });
         bytes32 opHash = entryPoint.getUserOpHash(op);
-        bytes32 op712Hash = _buildOpHash(op, accountAddress, opHash);
+        bytes32 op712Hash = implementation.buildUserOp712Hash(op, opHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, op712Hash);
 
         bytes memory signature = abi.encodePacked(r, s, v);
@@ -193,9 +192,8 @@ contract AccountERC4337Test is Test {
             paymasterAndData: "",
             signature: ""
         });
-
         bytes32 opHash = entryPoint.getUserOpHash(op);
-        bytes32 op712Hash = _buildOpHash(op, accountAddress, opHash);
+        bytes32 op712Hash = implementation.buildUserOp712Hash(op, opHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, op712Hash);
 
         bytes memory signature = abi.encodePacked(r, s, v);
@@ -253,7 +251,7 @@ contract AccountERC4337Test is Test {
         });
 
         bytes32 opHash = entryPoint.getUserOpHash(op);
-        bytes32 op712Hash = _buildOpHash(op, accountAddress, opHash);
+        bytes32 op712Hash = implementation.buildUserOp712Hash(op, opHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, op712Hash);
 
         // invalidate signature
@@ -269,43 +267,5 @@ contract AccountERC4337Test is Test {
         entryPoint.handleOps(ops, payable(user1));
 
         assertEq(accountAddress.balance, 1 ether);
-    }
-
-    function _buildOpHash(
-        UserOperation memory op,
-        address accountAddress,
-        bytes32 opHash
-    ) private view returns (bytes32 op712Hash) {
-        bytes32 domainSeparator = keccak256(
-            abi.encode(
-                keccak256(
-                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-                ),
-                keccak256(bytes("ERC6551-Account")),
-                keccak256(bytes("1")),
-                block.chainid,
-                address(accountAddress)
-            )
-        );
-        bytes32 hashStruct = keccak256(
-            abi.encode(
-                keccak256(
-                    "UserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,uint256 callGasLimit,uint256 verificationGasLimit,uint256 preVerificationGas,uint256 maxFeePerGas,uint256 maxPriorityFeePerGas,bytes paymasterAndData,bytes32 userOpHash)"
-                ),
-                op.sender,
-                op.nonce,
-                op.initCode,
-                op.callData,
-                op.callGasLimit,
-                op.verificationGasLimit,
-                op.preVerificationGas,
-                op.maxFeePerGas,
-                op.maxPriorityFeePerGas,
-                op.paymasterAndData,
-                opHash
-            )
-        );
-        console2.logBytes32(hashStruct);
-        op712Hash = ECDSA.toTypedDataHash(domainSeparator, hashStruct);
     }
 }

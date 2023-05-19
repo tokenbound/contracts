@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
-import "forge-std/console2.sol";
 import "erc6551/interfaces/IERC6551Account.sol";
 import "erc6551/lib/ERC6551AccountLib.sol";
 
@@ -350,6 +349,43 @@ contract Account is
         return this.onERC1155BatchReceived.selector;
     }
 
+    /// @dev 
+    function buildUserOp712Hash(
+        UserOperation memory op,
+        bytes32 opHash
+    ) public view returns (bytes32 op712Hash) {
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256(
+                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                ),
+                keccak256(bytes(NAME)),
+                keccak256(bytes(VERSION)),
+                block.chainid,
+                op.sender
+            )
+        );
+        bytes32 hashStruct = keccak256(
+            abi.encode(
+                keccak256(
+                    "UserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,uint256 callGasLimit,uint256 verificationGasLimit,uint256 preVerificationGas,uint256 maxFeePerGas,uint256 maxPriorityFeePerGas,bytes paymasterAndData,bytes32 userOpHash)"
+                ),
+                op.sender,
+                op.nonce,
+                op.initCode,
+                op.callData,
+                op.callGasLimit,
+                op.verificationGasLimit,
+                op.preVerificationGas,
+                op.maxFeePerGas,
+                op.maxPriorityFeePerGas,
+                op.paymasterAndData,
+                opHash
+            )
+        );
+        op712Hash = ECDSA.toTypedDataHash(domainSeparator, hashStruct);
+    }
+
     /// @dev Contract upgrades can only be performed by the owner and the new implementation must
     /// be trusted
     function _authorizeUpgrade(address newImplementation)
@@ -386,7 +422,6 @@ contract Account is
                 userOpHash
             )
         );
-        console2.logBytes32(hashStruct);
 
         bool isValid =
             this.isValidSignature(_hashTypedDataV4(hashStruct), userOp.signature) == IERC1271.isValidSignature.selector;
