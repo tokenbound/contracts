@@ -360,7 +360,7 @@ contract Account is
         bytes32 hashStruct = keccak256(
             abi.encode(
                 keccak256(
-                    "UserOp(address sender,uint256 nonce,bytes initCode,bytes callData,uint256 callGasLimit,uint256 verificationGasLimit,uint256 preVerificationGas,uint256 maxFeePerGas,uint256 maxPriorityFeePerGas,bytes paymasterAndData)"
+                    "UserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,uint256 callGasLimit,uint256 verificationGasLimit,uint256 preVerificationGas,uint256 maxFeePerGas,uint256 maxPriorityFeePerGas,bytes paymasterAndData)"
                 ),
                 userOp.sender,
                 userOp.nonce,
