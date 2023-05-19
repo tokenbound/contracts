@@ -32,7 +32,12 @@ contract AccountTest is Test {
     function setUp() public {
         entryPoint = new EntryPoint();
         guardian = new AccountGuardian();
-        implementation = new Account(address(guardian), address(entryPoint));
+        implementation = new Account(
+            address(guardian),
+            address(entryPoint),
+            "ERC6551-Account",
+            "1"
+        );
         proxy = new AccountProxy(address(implementation));
 
         registry = new ERC6551Registry();
@@ -142,9 +147,9 @@ contract AccountTest is Test {
         assertEq(returnValue1, IERC1271.isValidSignature.selector);
     }
 
-    function testMessageVerificationForUnauthorizedUser(uint256 tokenId)
-        public
-    {
+    function testMessageVerificationForUnauthorizedUser(
+        uint256 tokenId
+    ) public {
         address user1 = vm.addr(1);
 
         tokenCollection.mint(user1, tokenId);
@@ -543,7 +548,9 @@ contract AccountTest is Test {
 
         MockAccount upgradedImplementation = new MockAccount(
             address(guardian),
-            address(entryPoint)
+            address(entryPoint),
+            "ERC6551-Account",
+            "1"
         );
 
         vm.expectRevert(UntrustedImplementation.selector);

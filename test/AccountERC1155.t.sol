@@ -33,7 +33,12 @@ contract AccountERC1155Test is Test {
 
         entryPoint = new EntryPoint();
         guardian = new AccountGuardian();
-        implementation = new Account(address(guardian), address(entryPoint));
+        implementation = new Account(
+            address(guardian),
+            address(entryPoint),
+            "ERC6551-Account",
+            "1"
+        );
         registry = new ERC6551Registry();
 
         tokenCollection = new MockERC721();

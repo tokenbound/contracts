@@ -12,8 +12,9 @@ import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
 import "openzeppelin-contracts/interfaces/IERC1271.sol";
 import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 import "openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
+import "openzeppelin-contracts/utils/cryptography/EIP712.sol";
 
-import {BaseAccount as BaseERC4337Account, IEntryPoint, UserOperation} from "account-abstraction/core/BaseAccount.sol";
+import {BaseAccount as BaseERC4337Account, IEntryPoint, UserOperation, calldataKeccak} from "account-abstraction/core/BaseAccount.sol";
 
 import "./interfaces/IAccountGuardian.sol";
 
@@ -34,7 +35,8 @@ contract Account is
     IERC721Receiver,
     IERC1155Receiver,
     UUPSUpgradeable,
-    BaseERC4337Account
+    BaseERC4337Account,
+    EIP712
 {
     using ECDSA for bytes32;
 
@@ -81,7 +83,12 @@ contract Account is
         _;
     }
 
-    constructor(address _guardian, address entryPoint_) {
+    constructor(
+        address _guardian,
+        address entryPoint_,
+        string memory _name,
+        string memory _version
+    ) EIP712(_name, _version) {
         if (_guardian == address(0) || entryPoint_ == address(0))
             revert InvalidInput();
 
@@ -171,11 +178,10 @@ contract Account is
 
     /// @dev EIP-1271 signature validation. By default, only the owner of the account is permissioned to sign.
     /// This function can be overriden.
-    function isValidSignature(bytes32 hash, bytes memory signature)
-        external
-        view
-        returns (bytes4 magicValue)
-    {
+    function isValidSignature(
+        bytes32 hash,
+        bytes memory signature
+    ) external view returns (bytes4 magicValue) {
         _handleOverrideStatic();
 
         bool isValid = SignatureChecker.isValidSignatureNow(
@@ -196,11 +202,7 @@ contract Account is
     function token()
         external
         view
-        returns (
-            uint256 chainId,
-            address tokenContract,
-            uint256 tokenId
-        )
+        returns (uint256 chainId, address tokenContract, uint256 tokenId)
     {
         return ERC6551AccountLib.token();
     }
@@ -264,12 +266,9 @@ contract Account is
 
     /// @dev Returns true if a given interfaceId is supported by this account. This method can be
     /// extended by an override.
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override
-        returns (bool)
-    {
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view override returns (bool) {
         bool defaultSupport = interfaceId == type(IERC165).interfaceId ||
             interfaceId == type(IERC1155Receiver).interfaceId ||
             interfaceId == type(IERC6551Account).interfaceId;
@@ -335,12 +334,9 @@ contract Account is
 
     /// @dev Contract upgrades can only be performed by the owner and the new implementation must
     /// be trusted
-    function _authorizeUpgrade(address newImplementation)
-        internal
-        view
-        override
-        onlyOwner
-    {
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal view override onlyOwner {
         bool isTrusted = IAccountGuardian(guardian).isTrustedImplementation(
             newImplementation
         );
@@ -352,8 +348,27 @@ contract Account is
         UserOperation calldata userOp,
         bytes32 userOpHash
     ) internal view override returns (uint256 validationData) {
+        // _hashTypedDataV4(userOp)
+        bytes32 hashStruct = keccak256(
+            abi.encode(
+                keccak256(
+                    "UserOp(address sender,uint256 nonce,bytes initCode,bytes callData,uint256 callGasLimit,uint256 verificationGasLimit,uint256 preVerificationGas,uint256 maxFeePerGas,uint256 maxPriorityFeePerGas,bytes paymasterAndData)"
+                ),
+                userOp.sender,
+                userOp.nonce,
+                userOp.initCode,
+                userOp.callData,
+                userOp.callGasLimit,
+                userOp.verificationGasLimit,
+                userOp.preVerificationGas,
+                userOp.maxFeePerGas,
+                userOp.maxPriorityFeePerGas,
+                userOp.paymasterAndData
+            )
+        );
+
         bool isValid = this.isValidSignature(
-            userOpHash.toEthSignedMessageHash(),
+            _hashTypedDataV4(hashStruct),
             userOp.signature
         ) == IERC1271.isValidSignature.selector;
 
@@ -393,11 +408,10 @@ contract Account is
     }
 
     /// @dev Executes a low-level static call
-    function _callStatic(address to, bytes calldata data)
-        internal
-        view
-        returns (bytes memory result)
-    {
+    function _callStatic(
+        address to,
+        bytes calldata data
+    ) internal view returns (bytes memory result) {
         bool success;
         (success, result) = to.staticcall(data);
 

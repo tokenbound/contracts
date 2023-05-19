@@ -30,7 +30,13 @@ contract AccountERC4337Test is Test {
     function setUp() public {
         entryPoint = new EntryPoint();
         guardian = new AccountGuardian();
-        implementation = new Account(address(guardian), address(entryPoint));
+        implementation = new Account(
+            address(guardian),
+            address(entryPoint),
+            "ERC6551-Account",
+            "1"
+        );
+
         registry = new ERC6551Registry();
 
         tokenCollection = new MockERC721();
@@ -135,12 +141,9 @@ contract AccountERC4337Test is Test {
             paymasterAndData: "",
             signature: ""
         });
+        bytes32 opHash = _buildOpHash(op, accountAddress);
 
-        bytes32 opHash = entryPoint.getUserOpHash(op);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-            1,
-            opHash.toEthSignedMessageHash()
-        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, opHash);
 
         bytes memory signature = abi.encodePacked(r, s, v);
         op.signature = signature;
@@ -196,11 +199,8 @@ contract AccountERC4337Test is Test {
             signature: ""
         });
 
-        bytes32 opHash = entryPoint.getUserOpHash(op);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-            1,
-            opHash.toEthSignedMessageHash()
-        );
+        bytes32 opHash = _buildOpHash(op, accountAddress);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, opHash);
 
         bytes memory signature = abi.encodePacked(r, s, v);
         op.signature = signature;
@@ -256,11 +256,8 @@ contract AccountERC4337Test is Test {
             signature: ""
         });
 
-        bytes32 opHash = entryPoint.getUserOpHash(op);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-            1,
-            opHash.toEthSignedMessageHash()
-        );
+        bytes32 opHash = _buildOpHash(op, accountAddress);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, opHash);
 
         // invalidate signature
         bytes memory signature = abi.encodePacked(r, s, v + 1);
@@ -275,5 +272,40 @@ contract AccountERC4337Test is Test {
         entryPoint.handleOps(ops, payable(user1));
 
         assertEq(accountAddress.balance, 1 ether);
+    }
+
+    function _buildOpHash(
+        UserOperation memory op,
+        address accountAddress
+    ) private view returns (bytes32 opHash) {
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256(
+                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                ),
+                keccak256(bytes("ERC6551-Account")),
+                keccak256(bytes("1")),
+                block.chainid,
+                address(accountAddress)
+            )
+        );
+        bytes32 hashStruct = keccak256(
+            abi.encode(
+                keccak256(
+                    "UserOp(address sender,uint256 nonce,bytes initCode,bytes callData,uint256 callGasLimit,uint256 verificationGasLimit,uint256 preVerificationGas,uint256 maxFeePerGas,uint256 maxPriorityFeePerGas,bytes paymasterAndData)"
+                ),
+                op.sender,
+                op.nonce,
+                op.initCode,
+                op.callData,
+                op.callGasLimit,
+                op.verificationGasLimit,
+                op.preVerificationGas,
+                op.maxFeePerGas,
+                op.maxPriorityFeePerGas,
+                op.paymasterAndData
+            )
+        );
+        opHash = ECDSA.toTypedDataHash(domainSeparator, hashStruct);
     }
 }
