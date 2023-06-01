@@ -236,7 +236,7 @@ contract Account is
     }
 
     /// @dev Returns the authorization status for a given caller
-    function isAuthorized(address caller) public view returns (bool) {
+    function isAuthorized(address caller) public view virtual returns (bool) {
         // authorize entrypoint for 4337 transactions
         if (caller == _entryPoint) return true;
 
