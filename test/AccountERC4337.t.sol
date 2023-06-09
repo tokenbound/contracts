@@ -2,7 +2,6 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-
 import "openzeppelin-contracts/utils/cryptography/ECDSA.sol";
 import "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/proxy/Clones.sol";
@@ -31,6 +30,7 @@ contract AccountERC4337Test is Test {
         entryPoint = new EntryPoint();
         guardian = new AccountGuardian();
         implementation = new Account(address(guardian), address(entryPoint));
+
         registry = new ERC6551Registry();
 
         tokenCollection = new MockERC721();
@@ -135,12 +135,9 @@ contract AccountERC4337Test is Test {
             paymasterAndData: "",
             signature: ""
         });
-
         bytes32 opHash = entryPoint.getUserOpHash(op);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-            1,
-            opHash.toEthSignedMessageHash()
-        );
+        bytes32 op712Hash = implementation.buildUserOp712Hash(op, opHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, op712Hash);
 
         bytes memory signature = abi.encodePacked(r, s, v);
         op.signature = signature;
@@ -195,12 +192,9 @@ contract AccountERC4337Test is Test {
             paymasterAndData: "",
             signature: ""
         });
-
         bytes32 opHash = entryPoint.getUserOpHash(op);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-            1,
-            opHash.toEthSignedMessageHash()
-        );
+        bytes32 op712Hash = implementation.buildUserOp712Hash(op, opHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, op712Hash);
 
         bytes memory signature = abi.encodePacked(r, s, v);
         op.signature = signature;
@@ -257,10 +251,8 @@ contract AccountERC4337Test is Test {
         });
 
         bytes32 opHash = entryPoint.getUserOpHash(op);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-            1,
-            opHash.toEthSignedMessageHash()
-        );
+        bytes32 op712Hash = implementation.buildUserOp712Hash(op, opHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, op712Hash);
 
         // invalidate signature
         bytes memory signature = abi.encodePacked(r, s, v + 1);

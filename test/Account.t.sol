@@ -543,7 +543,9 @@ contract AccountTest is Test {
 
         MockAccount upgradedImplementation = new MockAccount(
             address(guardian),
-            address(entryPoint)
+            address(entryPoint),
+            "ERC6551-Account",
+            "1"
         );
 
         vm.expectRevert(UntrustedImplementation.selector);

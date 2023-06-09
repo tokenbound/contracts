@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
-
 import "erc6551/interfaces/IERC6551Account.sol";
 import "erc6551/lib/ERC6551AccountLib.sol";
 
@@ -12,6 +11,7 @@ import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
 import "openzeppelin-contracts/interfaces/IERC1271.sol";
 import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 import "openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
+import "openzeppelin-contracts/utils/cryptography/EIP712.sol";
 
 import {BaseAccount as BaseERC4337Account, IEntryPoint, UserOperation} from "account-abstraction/core/BaseAccount.sol";
 
@@ -34,9 +34,19 @@ contract Account is
     IERC721Receiver,
     IERC1155Receiver,
     UUPSUpgradeable,
-    BaseERC4337Account
+    BaseERC4337Account,
+    EIP712
 {
     using ECDSA for bytes32;
+
+    /// @dev EIP-712 name
+    string public constant NAME = "ERC6551-Account";
+
+    /// @dev EIP-712 version
+    string public constant VERSION = "1";
+
+    /// @dev EIP-712 Type for UserOperation
+    bytes32 public immutable userOperationType;
 
     /// @dev ERC-4337 entry point address
     address public immutable _entryPoint;
@@ -81,12 +91,18 @@ contract Account is
         _;
     }
 
-    constructor(address _guardian, address entryPoint_) {
-        if (_guardian == address(0) || entryPoint_ == address(0))
+    constructor(address _guardian, address entryPoint_)
+        EIP712(NAME, VERSION)
+    {
+        if (_guardian == address(0) || entryPoint_ == address(0)) {
             revert InvalidInput();
+        }
 
         _entryPoint = entryPoint_;
         guardian = _guardian;
+        userOperationType = keccak256(
+                "UserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,uint256 callGasLimit,uint256 verificationGasLimit,uint256 preVerificationGas,uint256 maxFeePerGas,uint256 maxPriorityFeePerGas,bytes paymasterAndData,bytes32 userOpHash)"
+            );
     }
 
     /// @dev allows eth transfers by default, but allows account owner to override
@@ -333,6 +349,43 @@ contract Account is
         return this.onERC1155BatchReceived.selector;
     }
 
+    /// @dev 
+    function buildUserOp712Hash(
+        UserOperation memory op,
+        bytes32 opHash
+    ) public view returns (bytes32 op712Hash) {
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256(
+                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                ),
+                keccak256(bytes(NAME)),
+                keccak256(bytes(VERSION)),
+                block.chainid,
+                op.sender
+            )
+        );
+        bytes32 hashStruct = keccak256(
+            abi.encode(
+                keccak256(
+                    "UserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,uint256 callGasLimit,uint256 verificationGasLimit,uint256 preVerificationGas,uint256 maxFeePerGas,uint256 maxPriorityFeePerGas,bytes paymasterAndData,bytes32 userOpHash)"
+                ),
+                op.sender,
+                op.nonce,
+                op.initCode,
+                op.callData,
+                op.callGasLimit,
+                op.verificationGasLimit,
+                op.preVerificationGas,
+                op.maxFeePerGas,
+                op.maxPriorityFeePerGas,
+                op.paymasterAndData,
+                opHash
+            )
+        );
+        op712Hash = ECDSA.toTypedDataHash(domainSeparator, hashStruct);
+    }
+
     /// @dev Contract upgrades can only be performed by the owner and the new implementation must
     /// be trusted
     function _authorizeUpgrade(address newImplementation)
@@ -352,10 +405,26 @@ contract Account is
         UserOperation calldata userOp,
         bytes32 userOpHash
     ) internal view override returns (uint256 validationData) {
-        bool isValid = this.isValidSignature(
-            userOpHash.toEthSignedMessageHash(),
-            userOp.signature
-        ) == IERC1271.isValidSignature.selector;
+        UserOperation memory userOpMemory = userOp;
+        bytes32 hashStruct = keccak256(
+            abi.encode(
+                userOperationType,
+                userOpMemory.sender,
+                userOpMemory.nonce,
+                userOpMemory.initCode,
+                userOpMemory.callData,
+                userOpMemory.callGasLimit,
+                userOpMemory.verificationGasLimit,
+                userOpMemory.preVerificationGas,
+                userOpMemory.maxFeePerGas,
+                userOpMemory.maxPriorityFeePerGas,
+                userOpMemory.paymasterAndData,
+                userOpHash
+            )
+        );
+
+        bool isValid =
+            this.isValidSignature(_hashTypedDataV4(hashStruct), userOp.signature) == IERC1271.isValidSignature.selector;
 
         if (isValid) {
             return 0;
