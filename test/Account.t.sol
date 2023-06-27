@@ -562,4 +562,9 @@ contract AccountTest is Test {
 
         assertEq(returnValue, 12345);
     }
+
+    function testProxyZeroAddressInit() public {
+        vm.expectRevert(InvalidImplementation.selector);
+        new AccountProxy(address(0));
+    }
 }
