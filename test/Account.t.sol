@@ -6,25 +6,36 @@ import "forge-std/Test.sol";
 import "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/proxy/Clones.sol";
 
-import "../src/CrossChainExecutorList.sol";
+import "account-abstraction/core/EntryPoint.sol";
+
+import "erc6551/ERC6551Registry.sol";
+import "erc6551/interfaces/IERC6551Account.sol";
+
 import "../src/Account.sol";
-import "../src/AccountRegistry.sol";
+import "../src/AccountGuardian.sol";
+import "../src/AccountProxy.sol";
 
 import "./mocks/MockERC721.sol";
 import "./mocks/MockExecutor.sol";
 import "./mocks/MockReverter.sol";
+import "./mocks/MockAccount.sol";
 
 contract AccountTest is Test {
-    CrossChainExecutorList ccExecutorList;
     Account implementation;
-    AccountRegistry public accountRegistry;
+    ERC6551Registry public registry;
+    AccountGuardian public guardian;
+    AccountProxy public proxy;
+    IEntryPoint public entryPoint;
 
     MockERC721 public tokenCollection;
 
     function setUp() public {
-        ccExecutorList = new CrossChainExecutorList();
-        implementation = new Account(address(ccExecutorList));
-        accountRegistry = new AccountRegistry(address(implementation));
+        entryPoint = new EntryPoint();
+        guardian = new AccountGuardian();
+        implementation = new Account(address(guardian), address(entryPoint));
+        proxy = new AccountProxy(address(implementation));
+
+        registry = new ERC6551Registry();
 
         tokenCollection = new MockERC721();
     }
@@ -36,9 +47,13 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.createAccount(
+        address accountAddress = registry.createAccount(
+            address(proxy),
+            block.chainid,
             address(tokenCollection),
-            tokenId
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -47,17 +62,21 @@ contract AccountTest is Test {
 
         // should fail if user2 tries to use account
         vm.prank(user2);
-        vm.expectRevert(Account.NotAuthorized.selector);
+        vm.expectRevert(NotAuthorized.selector);
         account.executeCall(payable(user2), 0.1 ether, "");
 
-        // should fail if user2 tries to set executor
+        // should fail if user2 tries to set override
+        address[] memory callers = new address[](1);
+        callers[0] = vm.addr(1337);
+        bool[] memory _permissions = new bool[](1);
+        _permissions[0] = true;
         vm.prank(user2);
-        vm.expectRevert(Account.NotAuthorized.selector);
-        account.setExecutor(vm.addr(1337));
+        vm.expectRevert(NotAuthorized.selector);
+        account.setPermissions(callers, _permissions);
 
         // should fail if user2 tries to lock account
         vm.prank(user2);
-        vm.expectRevert(Account.NotAuthorized.selector);
+        vm.expectRevert(NotAuthorized.selector);
         account.lock(364 days);
     }
 
@@ -68,9 +87,13 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.createAccount(
+        address accountAddress = registry.createAccount(
+            address(proxy),
+            block.chainid,
             address(tokenCollection),
-            tokenId
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -79,7 +102,7 @@ contract AccountTest is Test {
 
         // should fail if user2 tries to use account
         vm.prank(user2);
-        vm.expectRevert(Account.NotAuthorized.selector);
+        vm.expectRevert(NotAuthorized.selector);
         account.executeCall(payable(user2), 0.1 ether, "");
 
         vm.prank(user1);
@@ -98,9 +121,13 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.createAccount(
+        address accountAddress = registry.createAccount(
+            address(proxy),
+            block.chainid,
             address(tokenCollection),
-            tokenId
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         Account account = Account(payable(accountAddress));
@@ -123,9 +150,13 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.createAccount(
+        address accountAddress = registry.createAccount(
+            address(proxy),
+            block.chainid,
             address(tokenCollection),
-            tokenId
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         Account account = Account(payable(accountAddress));
@@ -146,9 +177,13 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.createAccount(
+        address accountAddress = registry.createAccount(
+            address(proxy),
+            block.chainid,
             address(tokenCollection),
-            tokenId
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -157,7 +192,7 @@ contract AccountTest is Test {
 
         // cannot be locked for more than 365 days
         vm.prank(user1);
-        vm.expectRevert(Account.ExceedsMaxLockTime.selector);
+        vm.expectRevert(ExceedsMaxLockTime.selector);
         account.lock(366 days);
 
         // lock account for 10 days
@@ -169,12 +204,12 @@ contract AccountTest is Test {
 
         // transaction should revert if account is locked
         vm.prank(user1);
-        vm.expectRevert(Account.AccountLocked.selector);
+        vm.expectRevert(AccountLocked.selector);
         account.executeCall(payable(user1), 1 ether, "");
 
         // fallback calls should revert if account is locked
         vm.prank(user1);
-        vm.expectRevert(Account.AccountLocked.selector);
+        vm.expectRevert(AccountLocked.selector);
         (bool success, bytes memory result) = accountAddress.call(
             abi.encodeWithSignature("customFunction()")
         );
@@ -183,14 +218,20 @@ contract AccountTest is Test {
         success;
         result;
 
-        // setExecutor calls should revert if account is locked
-        vm.prank(user1);
-        vm.expectRevert(Account.AccountLocked.selector);
-        account.setExecutor(vm.addr(1337));
+        // setOverrides calls should revert if account is locked
+        {
+            bytes4[] memory selectors = new bytes4[](1);
+            selectors[0] = Account.executeCall.selector;
+            address[] memory implementations = new address[](1);
+            implementations[0] = vm.addr(1337);
+            vm.prank(user1);
+            vm.expectRevert(AccountLocked.selector);
+            account.setOverrides(selectors, implementations);
+        }
 
         // lock calls should revert if account is locked
         vm.prank(user1);
-        vm.expectRevert(Account.AccountLocked.selector);
+        vm.expectRevert(AccountLocked.selector);
         account.lock(0);
 
         // signing should fail if account is locked
@@ -219,15 +260,19 @@ contract AccountTest is Test {
         assertEq(returnValue1, IERC1271.isValidSignature.selector);
     }
 
-    function testCustomExecutorFallback(uint256 tokenId) public {
+    function testCustomOverridesFallback(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.createAccount(
+        address accountAddress = registry.createAccount(
+            address(proxy),
+            block.chainid,
             address(tokenCollection),
-            tokenId
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -236,35 +281,22 @@ contract AccountTest is Test {
 
         MockExecutor mockExecutor = new MockExecutor();
 
-        // calls succeed with noop if executor is undefined
+        // calls succeed with noop if override is undefined
         (bool success, bytes memory result) = accountAddress.call(
             abi.encodeWithSignature("customFunction()")
         );
         assertEq(success, true);
         assertEq(result, "");
 
-        // calls succeed with noop if executor is EOA
+        // set overrides on account
+        bytes4[] memory selectors = new bytes4[](2);
+        selectors[0] = bytes4(abi.encodeWithSignature("customFunction()"));
+        selectors[1] = bytes4(abi.encodeWithSignature("fail()"));
+        address[] memory implementations = new address[](2);
+        implementations[0] = address(mockExecutor);
+        implementations[1] = address(mockExecutor);
         vm.prank(user1);
-        account.setExecutor(vm.addr(1337));
-        (bool success1, bytes memory result1) = accountAddress.call(
-            abi.encodeWithSignature("customFunction()")
-        );
-        assertEq(success1, true);
-        assertEq(result1, "");
-
-        assertEq(account.isAuthorized(user1), true);
-        assertEq(account.isAuthorized(address(mockExecutor)), false);
-
-        vm.prank(user1);
-        account.setExecutor(address(mockExecutor));
-
-        assertEq(account.isAuthorized(user1), true);
-        assertEq(account.isAuthorized(address(mockExecutor)), true);
-
-        assertEq(
-            account.isValidSignature(bytes32(0), ""),
-            IERC1271.isValidSignature.selector
-        );
+        account.setOverrides(selectors, implementations);
 
         // execution module handles fallback calls
         assertEq(MockExecutor(accountAddress).customFunction(), 12345);
@@ -274,16 +306,72 @@ contract AccountTest is Test {
         MockExecutor(accountAddress).fail();
     }
 
-    function testCustomExecutorCalls(uint256 tokenId) public {
+    function testCustomOverridesSupportsInterface(uint256 tokenId) public {
+        address user1 = vm.addr(1);
+
+        tokenCollection.mint(user1, tokenId);
+        assertEq(tokenCollection.ownerOf(tokenId), user1);
+
+        address accountAddress = registry.createAccount(
+            address(proxy),
+            block.chainid,
+            address(tokenCollection),
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
+        );
+
+        vm.deal(accountAddress, 1 ether);
+
+        Account account = Account(payable(accountAddress));
+
+        assertEq(
+            account.supportsInterface(type(IERC1155Receiver).interfaceId),
+            true
+        );
+        assertEq(account.supportsInterface(0x12345678), false);
+
+        MockExecutor mockExecutor = new MockExecutor();
+
+        // set overrides on account
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = bytes4(
+            abi.encodeWithSignature("supportsInterface(bytes4)")
+        );
+        address[] memory implementations = new address[](1);
+        implementations[0] = address(mockExecutor);
+        vm.prank(user1);
+        account.setOverrides(selectors, implementations);
+
+        // override handles extra interface support
+        assertEq(
+            Account(payable(accountAddress)).supportsInterface(0x12345678),
+            true
+        );
+        // cannot override default interfaces
+        assertEq(
+            Account(payable(accountAddress)).supportsInterface(
+                type(IERC1155Receiver).interfaceId
+            ),
+            true
+        );
+    }
+
+    /**/
+    function testCustomPermissions(uint256 tokenId) public {
         address user1 = vm.addr(1);
         address user2 = vm.addr(2);
 
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.createAccount(
+        address accountAddress = registry.createAccount(
+            address(proxy),
+            block.chainid,
             address(tokenCollection),
-            tokenId
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -292,13 +380,17 @@ contract AccountTest is Test {
 
         assertEq(account.isAuthorized(user2), false);
 
+        address[] memory callers = new address[](1);
+        callers[0] = address(user2);
+        bool[] memory _permissions = new bool[](1);
+        _permissions[0] = true;
         vm.prank(user1);
-        account.setExecutor(user2);
+        account.setPermissions(callers, _permissions);
 
         assertEq(account.isAuthorized(user2), true);
 
         vm.prank(user2);
-        account.executeTrustedCall(user2, 0.1 ether, "");
+        account.executeCall(user2, 0.1 ether, "");
 
         assertEq(user2.balance, 0.1 ether);
     }
@@ -313,10 +405,13 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.createAccount(
+        address accountAddress = registry.createAccount(
+            address(proxy),
             chainId,
             address(tokenCollection),
-            tokenId
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -325,35 +420,34 @@ contract AccountTest is Test {
 
         assertEq(account.isAuthorized(crossChainExecutor), false);
 
-        CrossChainExecutorList(ccExecutorList).setCrossChainExecutor(
-            chainId,
-            crossChainExecutor,
-            true
-        );
+        guardian.setTrustedExecutor(crossChainExecutor, true);
 
         assertEq(account.isAuthorized(crossChainExecutor), true);
 
         vm.prank(crossChainExecutor);
-        account.executeCrossChainCall(user1, 0.1 ether, "");
+        account.executeCall(user1, 0.1 ether, "");
 
         assertEq(user1.balance, 0.1 ether);
 
         address notCrossChainExecutor = vm.addr(3);
         vm.prank(notCrossChainExecutor);
-        vm.expectRevert(Account.NotAuthorized.selector);
-        Account(payable(account)).executeCrossChainCall(user1, 0.1 ether, "");
+        vm.expectRevert(NotAuthorized.selector);
+        Account(payable(account)).executeCall(user1, 0.1 ether, "");
 
         assertEq(user1.balance, 0.1 ether);
 
-        address nativeAccountAddress = accountRegistry.createAccount(
+        address nativeAccountAddress = registry.createAccount(
+            address(proxy),
             block.chainid,
             address(tokenCollection),
-            tokenId
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.prank(crossChainExecutor);
-        vm.expectRevert(Account.NotAuthorized.selector);
-        Account(payable(nativeAccountAddress)).executeCrossChainCall(
+        vm.expectRevert(NotAuthorized.selector);
+        Account(payable(nativeAccountAddress)).executeCall(
             user1,
             0.1 ether,
             ""
@@ -368,9 +462,13 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.createAccount(
+        address accountAddress = registry.createAccount(
+            address(proxy),
+            block.chainid,
             address(tokenCollection),
-            tokenId
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -389,7 +487,7 @@ contract AccountTest is Test {
     }
 
     function testAccountOwnerIsNullIfContextNotSet() public {
-        address accountClone = Clones.clone(accountRegistry.implementation());
+        address accountClone = Clones.clone(address(implementation));
 
         assertEq(Account(payable(accountClone)).owner(), address(0));
     }
@@ -401,34 +499,72 @@ contract AccountTest is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = accountRegistry.createAccount(
+        address accountAddress = registry.createAccount(
+            address(proxy),
+            block.chainid,
             address(tokenCollection),
-            tokenId
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
         vm.deal(accountAddress, 1 ether);
 
         Account account = Account(payable(accountAddress));
 
-        assertEq(account.supportsInterface(type(IAccount).interfaceId), true);
+        assertEq(
+            account.supportsInterface(type(IERC6551Account).interfaceId),
+            true
+        );
         assertEq(
             account.supportsInterface(type(IERC1155Receiver).interfaceId),
             true
         );
         assertEq(account.supportsInterface(type(IERC165).interfaceId), true);
-        assertEq(
-            account.supportsInterface(IERC1271.isValidSignature.selector),
-            false
+    }
+
+    function testAccountUpgrade() public {
+        uint256 tokenId = 1;
+        address user1 = vm.addr(1);
+
+        tokenCollection.mint(user1, tokenId);
+        assertEq(tokenCollection.ownerOf(tokenId), user1);
+
+        address accountAddress = registry.createAccount(
+            address(proxy),
+            block.chainid,
+            address(tokenCollection),
+            tokenId,
+            0,
+            abi.encodeWithSignature("initialize()")
         );
 
-        MockExecutor mockExecutor = new MockExecutor();
+        Account account = Account(payable(accountAddress));
 
+        MockAccount upgradedImplementation = new MockAccount(
+            address(guardian),
+            address(entryPoint)
+        );
+
+        vm.expectRevert(UntrustedImplementation.selector);
         vm.prank(user1);
-        account.setExecutor(address(mockExecutor));
+        account.upgradeTo(address(upgradedImplementation));
 
-        assertEq(
-            account.supportsInterface(IERC1271.isValidSignature.selector),
+        guardian.setTrustedImplementation(
+            address(upgradedImplementation),
             true
         );
+
+        vm.prank(user1);
+        account.upgradeTo(address(upgradedImplementation));
+        uint256 returnValue = MockAccount(payable(accountAddress))
+            .customFunction();
+
+        assertEq(returnValue, 12345);
+    }
+
+    function testProxyZeroAddressInit() public {
+        vm.expectRevert(InvalidImplementation.selector);
+        new AccountProxy(address(0));
     }
 }

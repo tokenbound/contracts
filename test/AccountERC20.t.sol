@@ -6,28 +6,34 @@ import "forge-std/Test.sol";
 import "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/proxy/Clones.sol";
 
-import "../src/CrossChainExecutorList.sol";
+import "account-abstraction/core/EntryPoint.sol";
+
+import "erc6551/ERC6551Registry.sol";
+import "erc6551/interfaces/IERC6551Account.sol";
+
 import "../src/Account.sol";
-import "../src/AccountRegistry.sol";
+import "../src/AccountGuardian.sol";
 
 import "./mocks/MockERC721.sol";
 import "./mocks/MockERC20.sol";
 
-contract AccountTest is Test {
+contract AccountERC20Test is Test {
     MockERC20 public dummyERC20;
 
-    CrossChainExecutorList ccExecutorList;
     Account implementation;
-    AccountRegistry public accountRegistry;
+    AccountGuardian public guardian;
+    ERC6551Registry public registry;
+    IEntryPoint public entryPoint;
 
     MockERC721 public tokenCollection;
 
     function setUp() public {
         dummyERC20 = new MockERC20();
 
-        ccExecutorList = new CrossChainExecutorList();
-        implementation = new Account(address(ccExecutorList));
-        accountRegistry = new AccountRegistry(address(implementation));
+        entryPoint = new EntryPoint();
+        guardian = new AccountGuardian();
+        implementation = new Account(address(guardian), address(entryPoint));
+        registry = new ERC6551Registry();
 
         tokenCollection = new MockERC721();
     }
@@ -35,9 +41,12 @@ contract AccountTest is Test {
     function testTransferERC20PreDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address computedAccountInstance = accountRegistry.account(
+        address computedAccountInstance = registry.account(
+            address(implementation),
+            block.chainid,
             address(tokenCollection),
-            tokenId
+            tokenId,
+            0
         );
 
         tokenCollection.mint(user1, tokenId);
@@ -47,9 +56,13 @@ contract AccountTest is Test {
 
         assertEq(dummyERC20.balanceOf(computedAccountInstance), 1 ether);
 
-        address accountAddress = accountRegistry.createAccount(
+        address accountAddress = registry.createAccount(
+            address(implementation),
+            block.chainid,
             address(tokenCollection),
-            tokenId
+            tokenId,
+            0,
+            ""
         );
 
         Account account = Account(payable(accountAddress));
@@ -69,9 +82,13 @@ contract AccountTest is Test {
     function testTransferERC20PostDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address accountAddress = accountRegistry.createAccount(
+        address accountAddress = registry.createAccount(
+            address(implementation),
+            block.chainid,
             address(tokenCollection),
-            tokenId
+            tokenId,
+            0,
+            ""
         );
 
         tokenCollection.mint(user1, tokenId);

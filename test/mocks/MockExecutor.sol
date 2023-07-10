@@ -5,14 +5,6 @@ import "./MockReverter.sol";
 import "openzeppelin-contracts/interfaces/IERC1271.sol";
 
 contract MockExecutor is MockReverter {
-    function isValidSignature(bytes32, bytes memory)
-        external
-        pure
-        returns (bytes4 magicValue)
-    {
-        return IERC1271.isValidSignature.selector;
-    }
-
     function customFunction() external pure returns (uint256) {
         return 12345;
     }
@@ -22,6 +14,35 @@ contract MockExecutor is MockReverter {
         pure
         returns (bool)
     {
-        return interfaceId == IERC1271.isValidSignature.selector;
+        return interfaceId == 0x12345678;
+    }
+
+    function onERC721Received(
+        address,
+        address,
+        uint256,
+        bytes memory
+    ) public pure returns (bytes4) {
+        return bytes4("");
+    }
+
+    function onERC1155Received(
+        address,
+        address,
+        uint256,
+        uint256,
+        bytes memory
+    ) public pure returns (bytes4) {
+        return bytes4("");
+    }
+
+    function onERC1155BatchReceived(
+        address,
+        address,
+        uint256[] memory,
+        uint256[] memory,
+        bytes memory
+    ) public pure returns (bytes4) {
+        return bytes4("");
     }
 }
