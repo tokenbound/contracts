@@ -71,15 +71,15 @@ contract AccountERC4337Test is Test {
 
         Account account = Account(payable(accountAddress));
 
-        uint256 nonce = account.nonce();
+        uint256 nonce = account.getNonce();
         assertEq(nonce, 0);
 
         // user1 executes transaction to send ETH from account
         vm.prank(user1);
         account.executeCall(payable(user1), 0.1 ether, "");
 
-        assertEq(account.nonce(), nonce + 1);
-        assertEq(account.nonce(), entryPoint.getNonce(accountAddress, 0));
+        assertEq(account.getNonce(), nonce + 1);
+        assertEq(account.getNonce(), entryPoint.getNonce(accountAddress, 0));
 
         // success!
         assertEq(accountAddress.balance, 0.9 ether);

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "erc6551/interfaces/IERC6551Account.sol";
+import "erc6551/interfaces/IERC6551Executable.sol";
 import "erc6551/lib/ERC6551AccountLib.sol";
 
 import "openzeppelin-contracts/utils/cryptography/ECDSA.sol";
@@ -31,6 +32,7 @@ contract Account is
     IERC165,
     IERC1271,
     IERC6551Account,
+    IERC6551Executable,
     IERC721Receiver,
     IERC1155Receiver,
     UUPSUpgradeable,
@@ -105,8 +107,6 @@ contract Account is
         uint256 value,
         bytes calldata data
     ) external payable onlyAuthorized onlyUnlocked returns (bytes memory) {
-        emit TransactionExecuted(to, value, data);
-
         _incrementNonce();
 
         return _call(to, value, data);
@@ -191,10 +191,30 @@ contract Account is
         return "";
     }
 
+    /// @dev Returns a magic value if a given signer is valid
+    function isValidSigner(address signer, bytes calldata)
+        external
+        view
+        returns (bytes4 magicValue)
+    {
+        _handleOverrideStatic();
+
+        if (signer == owner()) {
+            return IERC6551Account.isValidSigner.selector;
+        }
+
+        return bytes4(0);
+    }
+
+    /// @dev Returns the current account nonce
+    function state() external view override returns (uint256) {
+        return IEntryPoint(_entryPoint).getNonce(address(this), 0);
+    }
+
     /// @dev Returns the EIP-155 chain ID, token contract address, and token ID for the token that
     /// owns this account.
     function token()
-        external
+        public
         view
         returns (
             uint256 chainId,
@@ -203,11 +223,6 @@ contract Account is
         )
     {
         return ERC6551AccountLib.token();
-    }
-
-    /// @dev Returns the current account nonce
-    function nonce() public view override returns (uint256) {
-        return IEntryPoint(_entryPoint).getNonce(address(this), 0);
     }
 
     /// @dev Increments the account nonce if the caller is not the ERC-4337 entry point
@@ -224,11 +239,7 @@ contract Account is
     /// @dev Returns the owner of the ERC-721 token which owns this account. By default, the owner
     /// of the token has full permissions on the account.
     function owner() public view returns (address) {
-        (
-            uint256 chainId,
-            address tokenContract,
-            uint256 tokenId
-        ) = ERC6551AccountLib.token();
+        (uint256 chainId, address tokenContract, uint256 tokenId) = token();
 
         if (chainId != block.chainid) return address(0);
 
@@ -240,11 +251,7 @@ contract Account is
         // authorize entrypoint for 4337 transactions
         if (caller == _entryPoint) return true;
 
-        (
-            uint256 chainId,
-            address tokenContract,
-            uint256 tokenId
-        ) = ERC6551AccountLib.token();
+        (uint256 chainId, address tokenContract, uint256 tokenId) = token();
         address _owner = IERC721(tokenContract).ownerOf(tokenId);
 
         // authorize token owner
@@ -272,7 +279,8 @@ contract Account is
     {
         bool defaultSupport = interfaceId == type(IERC165).interfaceId ||
             interfaceId == type(IERC1155Receiver).interfaceId ||
-            interfaceId == type(IERC6551Account).interfaceId;
+            interfaceId == type(IERC6551Account).interfaceId ||
+            interfaceId == type(IERC6551Executable).interfaceId;
 
         if (defaultSupport) return true;
 
@@ -292,11 +300,7 @@ contract Account is
     ) public view override returns (bytes4) {
         _handleOverrideStatic();
 
-        (
-            uint256 chainId,
-            address tokenContract,
-            uint256 tokenId
-        ) = ERC6551AccountLib.token();
+        (uint256 chainId, address tokenContract, uint256 tokenId) = token();
 
         if (
             chainId == block.chainid &&
