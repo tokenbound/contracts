@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "openzeppelin-contracts/proxy/ERC1967/ERC1967Upgrade.sol";
-import "openzeppelin-contracts/proxy/Proxy.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
+import "@openzeppelin/contracts/proxy/Proxy.sol";
 
 error InvalidImplementation();
 

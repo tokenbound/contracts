@@ -5,14 +5,14 @@ import "erc6551/interfaces/IERC6551Account.sol";
 import "erc6551/interfaces/IERC6551Executable.sol";
 import "erc6551/lib/ERC6551AccountLib.sol";
 
-import "openzeppelin-contracts/utils/cryptography/ECDSA.sol";
-import "openzeppelin-contracts/utils/introspection/IERC165.sol";
-import "openzeppelin-contracts/token/ERC721/IERC721.sol";
-import "openzeppelin-contracts/token/ERC721/IERC721Receiver.sol";
-import "openzeppelin-contracts/token/ERC1155/IERC1155Receiver.sol";
-import "openzeppelin-contracts/interfaces/IERC1271.sol";
-import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
-import "openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
+import "@openzeppelin/contracts/interfaces/IERC1271.sol";
+import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 import {BaseAccount as BaseERC4337Account, IEntryPoint, UserOperation} from "account-abstraction/core/BaseAccount.sol";
 
