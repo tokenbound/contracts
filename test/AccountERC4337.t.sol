@@ -76,7 +76,7 @@ contract AccountERC4337Test is Test {
 
         // user1 executes transaction to send ETH from account
         vm.prank(user1);
-        account.executeCall(payable(user1), 0.1 ether, "");
+        account.execute(payable(user1), 0.1 ether, "", 0);
 
         assertEq(account.getNonce(), nonce + 1);
         assertEq(account.getNonce(), entryPoint.getNonce(accountAddress, 0));
@@ -116,10 +116,11 @@ contract AccountERC4337Test is Test {
         );
 
         bytes memory callData = abi.encodeWithSignature(
-            "executeCall(address,uint256,bytes)",
+            "execute(address,uint256,bytes,uint256)",
             user2,
             0.1 ether,
-            ""
+            "",
+            0
         );
 
         UserOperation memory op = UserOperation({
@@ -176,10 +177,11 @@ contract AccountERC4337Test is Test {
         );
 
         bytes memory callData = abi.encodeWithSignature(
-            "executeCall(address,uint256,bytes)",
+            "execute(address,uint256,bytes,uint256)",
             user2,
             0.1 ether,
-            ""
+            "",
+            0
         );
 
         UserOperation memory op = UserOperation({
@@ -236,10 +238,11 @@ contract AccountERC4337Test is Test {
         );
 
         bytes memory callData = abi.encodeWithSignature(
-            "executeCall(address,uint256,bytes)",
+            "execute(address,uint256,bytes,uint256)",
             user2,
             0.1 ether,
-            ""
+            "",
+            0
         );
 
         UserOperation memory op = UserOperation({

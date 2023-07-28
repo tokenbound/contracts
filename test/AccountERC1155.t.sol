@@ -77,10 +77,11 @@ contract AccountERC1155Test is Test {
             ""
         );
         vm.prank(user1);
-        account.executeCall(
+        account.execute(
             payable(address(dummyERC1155)),
             0,
-            erc1155TransferCall
+            erc1155TransferCall,
+            0
         );
 
         assertEq(dummyERC1155.balanceOf(accountAddress, 1), 0);
@@ -117,10 +118,11 @@ contract AccountERC1155Test is Test {
             ""
         );
         vm.prank(user1);
-        account.executeCall(
+        account.execute(
             payable(address(dummyERC1155)),
             0,
-            erc1155TransferCall
+            erc1155TransferCall,
+            0
         );
 
         assertEq(dummyERC1155.balanceOf(accountAddress, 1), 0);

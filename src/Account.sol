@@ -102,11 +102,14 @@ contract Account is
     }
 
     /// @dev executes a low-level call against an account if the caller is authorized to make calls
-    function executeCall(
+    function execute(
         address to,
         uint256 value,
-        bytes calldata data
+        bytes calldata data,
+        uint256 operation
     ) external payable onlyAuthorized onlyUnlocked returns (bytes memory) {
+        require(operation == 0, "Only calls are allowed");
+
         _incrementNonce();
 
         return _call(to, value, data);

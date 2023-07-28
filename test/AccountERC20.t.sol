@@ -73,7 +73,7 @@ contract AccountERC20Test is Test {
             1 ether
         );
         vm.prank(user1);
-        account.executeCall(payable(address(dummyERC20)), 0, erc20TransferCall);
+        account.execute(payable(address(dummyERC20)), 0, erc20TransferCall, 0);
 
         assertEq(dummyERC20.balanceOf(accountAddress), 0);
         assertEq(dummyERC20.balanceOf(user1), 1 ether);
@@ -106,7 +106,7 @@ contract AccountERC20Test is Test {
             1 ether
         );
         vm.prank(user1);
-        account.executeCall(payable(address(dummyERC20)), 0, erc20TransferCall);
+        account.execute(payable(address(dummyERC20)), 0, erc20TransferCall, 0);
 
         assertEq(dummyERC20.balanceOf(accountAddress), 0);
         assertEq(dummyERC20.balanceOf(user1), 1 ether);

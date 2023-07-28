@@ -75,7 +75,7 @@ contract AccountETHTest is Test {
 
         // user1 executes transaction to send ETH from account
         vm.prank(user1);
-        account.executeCall(payable(user1), 0.1 ether, "");
+        account.execute(payable(user1), 0.1 ether, "", 0);
 
         // success!
         assertEq(accountAddress.balance, 0.1 ether);
@@ -108,7 +108,7 @@ contract AccountETHTest is Test {
         Account account = Account(payable(accountAddress));
 
         vm.prank(user1);
-        account.executeCall(payable(user1), 0.1 ether, "");
+        account.execute(payable(user1), 0.1 ether, "", 0);
 
         assertEq(accountAddress.balance, 0.1 ether);
         assertEq(user1.balance, 0.1 ether);
