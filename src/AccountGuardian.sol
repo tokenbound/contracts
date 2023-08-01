@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "openzeppelin-contracts/access/Ownable2Step.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 // @dev manages upgrade and cross-chain execution settings for accounts
 contract AccountGuardian is Ownable2Step {

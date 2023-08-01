@@ -3,9 +3,9 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 
-import "openzeppelin-contracts/utils/cryptography/ECDSA.sol";
-import "openzeppelin-contracts/token/ERC20/ERC20.sol";
-import "openzeppelin-contracts/proxy/Clones.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/proxy/Clones.sol";
 
 import "account-abstraction/core/EntryPoint.sol";
 
@@ -71,15 +71,15 @@ contract AccountERC4337Test is Test {
 
         Account account = Account(payable(accountAddress));
 
-        uint256 nonce = account.nonce();
+        uint256 nonce = account.getNonce();
         assertEq(nonce, 0);
 
         // user1 executes transaction to send ETH from account
         vm.prank(user1);
-        account.executeCall(payable(user1), 0.1 ether, "");
+        account.execute(payable(user1), 0.1 ether, "", 0);
 
-        assertEq(account.nonce(), nonce + 1);
-        assertEq(account.nonce(), entryPoint.getNonce(accountAddress, 0));
+        assertEq(account.getNonce(), nonce + 1);
+        assertEq(account.getNonce(), entryPoint.getNonce(accountAddress, 0));
 
         // success!
         assertEq(accountAddress.balance, 0.9 ether);
@@ -116,10 +116,11 @@ contract AccountERC4337Test is Test {
         );
 
         bytes memory callData = abi.encodeWithSignature(
-            "executeCall(address,uint256,bytes)",
+            "execute(address,uint256,bytes,uint256)",
             user2,
             0.1 ether,
-            ""
+            "",
+            0
         );
 
         UserOperation memory op = UserOperation({
@@ -176,10 +177,11 @@ contract AccountERC4337Test is Test {
         );
 
         bytes memory callData = abi.encodeWithSignature(
-            "executeCall(address,uint256,bytes)",
+            "execute(address,uint256,bytes,uint256)",
             user2,
             0.1 ether,
-            ""
+            "",
+            0
         );
 
         UserOperation memory op = UserOperation({
@@ -236,10 +238,11 @@ contract AccountERC4337Test is Test {
         );
 
         bytes memory callData = abi.encodeWithSignature(
-            "executeCall(address,uint256,bytes)",
+            "execute(address,uint256,bytes,uint256)",
             user2,
             0.1 ether,
-            ""
+            "",
+            0
         );
 
         UserOperation memory op = UserOperation({

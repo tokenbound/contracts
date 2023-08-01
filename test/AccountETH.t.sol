@@ -3,8 +3,8 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 
-import "openzeppelin-contracts/token/ERC20/ERC20.sol";
-import "openzeppelin-contracts/proxy/Clones.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/proxy/Clones.sol";
 
 import "account-abstraction/core/EntryPoint.sol";
 
@@ -75,7 +75,7 @@ contract AccountETHTest is Test {
 
         // user1 executes transaction to send ETH from account
         vm.prank(user1);
-        account.executeCall(payable(user1), 0.1 ether, "");
+        account.execute(payable(user1), 0.1 ether, "", 0);
 
         // success!
         assertEq(accountAddress.balance, 0.1 ether);
@@ -108,7 +108,7 @@ contract AccountETHTest is Test {
         Account account = Account(payable(accountAddress));
 
         vm.prank(user1);
-        account.executeCall(payable(user1), 0.1 ether, "");
+        account.execute(payable(user1), 0.1 ether, "", 0);
 
         assertEq(accountAddress.balance, 0.1 ether);
         assertEq(user1.balance, 0.1 ether);

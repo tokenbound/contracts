@@ -3,8 +3,8 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 
-import "openzeppelin-contracts/token/ERC20/ERC20.sol";
-import "openzeppelin-contracts/proxy/Clones.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/proxy/Clones.sol";
 
 import "account-abstraction/core/EntryPoint.sol";
 
@@ -63,7 +63,7 @@ contract AccountTest is Test {
         // should fail if user2 tries to use account
         vm.prank(user2);
         vm.expectRevert(NotAuthorized.selector);
-        account.executeCall(payable(user2), 0.1 ether, "");
+        account.execute(payable(user2), 0.1 ether, "", 0);
 
         // should fail if user2 tries to set override
         address[] memory callers = new address[](1);
@@ -103,14 +103,14 @@ contract AccountTest is Test {
         // should fail if user2 tries to use account
         vm.prank(user2);
         vm.expectRevert(NotAuthorized.selector);
-        account.executeCall(payable(user2), 0.1 ether, "");
+        account.execute(payable(user2), 0.1 ether, "", 0);
 
         vm.prank(user1);
         tokenCollection.safeTransferFrom(user1, user2, tokenId);
 
         // should succeed now that user2 is owner
         vm.prank(user2);
-        account.executeCall(payable(user2), 0.1 ether, "");
+        account.execute(payable(user2), 0.1 ether, "", 0);
 
         assertEq(user2.balance, 0.1 ether);
     }
@@ -205,7 +205,7 @@ contract AccountTest is Test {
         // transaction should revert if account is locked
         vm.prank(user1);
         vm.expectRevert(AccountLocked.selector);
-        account.executeCall(payable(user1), 1 ether, "");
+        account.execute(payable(user1), 1 ether, "", 0);
 
         // fallback calls should revert if account is locked
         vm.prank(user1);
@@ -221,7 +221,7 @@ contract AccountTest is Test {
         // setOverrides calls should revert if account is locked
         {
             bytes4[] memory selectors = new bytes4[](1);
-            selectors[0] = Account.executeCall.selector;
+            selectors[0] = Account.execute.selector;
             address[] memory implementations = new address[](1);
             implementations[0] = vm.addr(1337);
             vm.prank(user1);
@@ -246,7 +246,7 @@ contract AccountTest is Test {
 
         // transaction succeed now that account lock has expired
         vm.prank(user1);
-        account.executeCall(payable(user1), 1 ether, "");
+        account.execute(payable(user1), 1 ether, "", 0);
         assertEq(user1.balance, 1 ether);
 
         // signing should now that account lock has expired
@@ -390,7 +390,7 @@ contract AccountTest is Test {
         assertEq(account.isAuthorized(user2), true);
 
         vm.prank(user2);
-        account.executeCall(user2, 0.1 ether, "");
+        account.execute(user2, 0.1 ether, "", 0);
 
         assertEq(user2.balance, 0.1 ether);
     }
@@ -425,14 +425,14 @@ contract AccountTest is Test {
         assertEq(account.isAuthorized(crossChainExecutor), true);
 
         vm.prank(crossChainExecutor);
-        account.executeCall(user1, 0.1 ether, "");
+        account.execute(user1, 0.1 ether, "", 0);
 
         assertEq(user1.balance, 0.1 ether);
 
         address notCrossChainExecutor = vm.addr(3);
         vm.prank(notCrossChainExecutor);
         vm.expectRevert(NotAuthorized.selector);
-        Account(payable(account)).executeCall(user1, 0.1 ether, "");
+        Account(payable(account)).execute(user1, 0.1 ether, "", 0);
 
         assertEq(user1.balance, 0.1 ether);
 
@@ -447,11 +447,7 @@ contract AccountTest is Test {
 
         vm.prank(crossChainExecutor);
         vm.expectRevert(NotAuthorized.selector);
-        Account(payable(nativeAccountAddress)).executeCall(
-            user1,
-            0.1 ether,
-            ""
-        );
+        Account(payable(nativeAccountAddress)).execute(user1, 0.1 ether, "", 0);
 
         assertEq(user1.balance, 0.1 ether);
     }
@@ -479,10 +475,11 @@ contract AccountTest is Test {
 
         vm.prank(user1);
         vm.expectRevert(MockReverter.MockError.selector);
-        account.executeCall(
+        account.execute(
             payable(address(mockReverter)),
             0,
-            abi.encodeWithSignature("fail()")
+            abi.encodeWithSignature("fail()"),
+            0
         );
     }
 

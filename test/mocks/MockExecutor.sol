@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "./MockReverter.sol";
-import "openzeppelin-contracts/interfaces/IERC1271.sol";
+import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 
 contract MockExecutor is MockReverter {
     function customFunction() external pure returns (uint256) {
