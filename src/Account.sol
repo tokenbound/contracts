@@ -254,8 +254,8 @@ contract Account is
         // authorize entrypoint for 4337 transactions
         if (caller == _entryPoint) return true;
 
-        (uint256 chainId, address tokenContract, uint256 tokenId) = token();
-        address _owner = IERC721(tokenContract).ownerOf(tokenId);
+        (uint256 chainId, , ) = token();
+        address _owner = owner();
 
         // authorize token owner
         if (caller == _owner) return true;
