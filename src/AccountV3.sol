@@ -1,16 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
+import "forge-std/console.sol";
+
 import "erc6551/interfaces/IERC6551Account.sol";
 import "erc6551/interfaces/IERC6551Executable.sol";
 import "erc6551/lib/ERC6551AccountLib.sol";
 
+import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
-import "./abstract/ExecutableAccount.sol";
+import "./abstract/AssetReceiver.sol";
 import "./abstract/SigningAccount.sol";
+import "./abstract/ExecutableAccount.sol";
 import "./abstract/ERC4337Account.sol";
 
 contract ExternalStorage {
@@ -32,7 +36,7 @@ contract ExternalStorage {
     function locked() public view returns (bool) {}
 }
 
-contract AccountV3 is IERC6551Account, SigningAccount, ExecutableAccount, ERC4337Account {
+contract AccountV3 is IERC6551Account, AssetReceiver, SigningAccount, ExecutableAccount, ERC4337Account {
     ExternalStorage public immutable _storage;
 
     constructor(address _entryPoint, address externalStorage) ERC4337Account(_entryPoint) {
@@ -74,7 +78,11 @@ contract AccountV3 is IERC6551Account, SigningAccount, ExecutableAccount, ERC433
     }
 
     function _isValidSignature(bytes32 hash, bytes calldata signature) internal view override returns (bool) {
-        return SignatureChecker.isValidSignatureNow(owner(), hash, signature);
+        bool result = SignatureChecker.isValidSignatureNow(owner(), hash, signature);
+        console.logBytes32(hash);
+        console.logBytes(signature);
+        console.log(result);
+        return result;
     }
 
     function _isValidExecutor(address executor, address, uint256, bytes calldata, uint256)
@@ -84,7 +92,7 @@ contract AccountV3 is IERC6551Account, SigningAccount, ExecutableAccount, ERC433
         override
         returns (bool)
     {
-        return _isValidSigner(executor, "");
+        return executor == address(entryPoint()) || _isValidSigner(executor, "");
     }
 
     function _beforeExecute(address to, uint256 value, bytes calldata data, uint256 operation)
@@ -96,5 +104,7 @@ contract AccountV3 is IERC6551Account, SigningAccount, ExecutableAccount, ERC433
         bytes32 currentState = _storage.load(address(this), stateKey);
         bytes32 executionHash = keccak256(abi.encode(to, value, data, operation));
         _storage.store(stateKey, keccak256(abi.encode(currentState, executionHash)));
+
+        if (operation == OP_DELEGATECALL) _storage.lock();
     }
 }

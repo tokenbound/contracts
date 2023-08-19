@@ -12,7 +12,7 @@ import "account-abstraction/core/EntryPoint.sol";
 import "erc6551/ERC6551Registry.sol";
 import "erc6551/interfaces/IERC6551Account.sol";
 
-import "../src/Account.sol";
+import "../src/AccountV3.sol";
 import "../src/AccountGuardian.sol";
 
 import "./mocks/MockERC721.sol";
@@ -20,8 +20,8 @@ import "./mocks/MockERC721.sol";
 contract AccountERC4337Test is Test {
     using ECDSA for bytes32;
 
-    Account implementation;
-    AccountGuardian public guardian;
+    ExternalStorage externalStorage;
+    AccountV3 implementation;
     ERC6551Registry public registry;
     IEntryPoint public entryPoint;
 
@@ -29,61 +29,18 @@ contract AccountERC4337Test is Test {
 
     function setUp() public {
         entryPoint = new EntryPoint();
-        guardian = new AccountGuardian();
-        implementation = new Account(address(guardian), address(entryPoint));
+        externalStorage = new ExternalStorage();
+        implementation = new AccountV3(address(entryPoint), address(externalStorage));
         registry = new ERC6551Registry();
 
         tokenCollection = new MockERC721();
     }
 
     function testReturnsEntryPoint() public {
-        address accountAddress = registry.createAccount(
-            address(implementation),
-            block.chainid,
-            address(tokenCollection),
-            1,
-            0,
-            ""
-        );
+        address accountAddress =
+            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), 1, 0, "");
 
-        assertEq(
-            address(Account(payable(accountAddress)).entryPoint()),
-            address(entryPoint)
-        );
-    }
-
-    function testNonceIncrementsOnDirectCall(uint256 tokenId) public {
-        address user1 = vm.addr(1);
-
-        tokenCollection.mint(user1, tokenId);
-        assertEq(tokenCollection.ownerOf(tokenId), user1);
-
-        address accountAddress = registry.createAccount(
-            address(implementation),
-            block.chainid,
-            address(tokenCollection),
-            tokenId,
-            0,
-            ""
-        );
-
-        vm.deal(accountAddress, 1 ether);
-
-        Account account = Account(payable(accountAddress));
-
-        uint256 nonce = account.getNonce();
-        assertEq(nonce, 0);
-
-        // user1 executes transaction to send ETH from account
-        vm.prank(user1);
-        account.execute(payable(user1), 0.1 ether, "", 0);
-
-        assertEq(account.getNonce(), nonce + 1);
-        assertEq(account.getNonce(), entryPoint.getNonce(accountAddress, 0));
-
-        // success!
-        assertEq(accountAddress.balance, 0.9 ether);
-        assertEq(user1.balance, 0.1 ether);
+        assertEq(address(AccountV3(payable(accountAddress)).entryPoint()), address(entryPoint));
     }
 
     function test4337CallCreateAccount() public {
@@ -94,13 +51,8 @@ contract AccountERC4337Test is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = registry.account(
-            address(implementation),
-            block.chainid,
-            address(tokenCollection),
-            tokenId,
-            0
-        );
+        address accountAddress =
+            registry.account(address(implementation), block.chainid, address(tokenCollection), tokenId, 0);
 
         bytes memory initCode = abi.encodePacked(
             address(registry),
@@ -115,13 +67,8 @@ contract AccountERC4337Test is Test {
             )
         );
 
-        bytes memory callData = abi.encodeWithSignature(
-            "execute(address,uint256,bytes,uint256)",
-            user2,
-            0.1 ether,
-            "",
-            0
-        );
+        bytes memory callData =
+            abi.encodeWithSignature("execute(address,uint256,bytes,uint256)", user2, 0.1 ether, "", 0);
 
         UserOperation memory op = UserOperation({
             sender: accountAddress,
@@ -138,10 +85,7 @@ contract AccountERC4337Test is Test {
         });
 
         bytes32 opHash = entryPoint.getUserOpHash(op);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-            1,
-            opHash.toEthSignedMessageHash()
-        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, opHash.toEthSignedMessageHash());
 
         bytes memory signature = abi.encodePacked(r, s, v);
         op.signature = signature;
@@ -167,22 +111,11 @@ contract AccountERC4337Test is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = registry.createAccount(
-            address(implementation),
-            block.chainid,
-            address(tokenCollection),
-            tokenId,
-            0,
-            ""
-        );
+        address accountAddress =
+            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
 
-        bytes memory callData = abi.encodeWithSignature(
-            "execute(address,uint256,bytes,uint256)",
-            user2,
-            0.1 ether,
-            "",
-            0
-        );
+        bytes memory callData =
+            abi.encodeWithSignature("execute(address,uint256,bytes,uint256)", user2, 0.1 ether, "", 0);
 
         UserOperation memory op = UserOperation({
             sender: accountAddress,
@@ -199,10 +132,7 @@ contract AccountERC4337Test is Test {
         });
 
         bytes32 opHash = entryPoint.getUserOpHash(op);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-            1,
-            opHash.toEthSignedMessageHash()
-        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, opHash.toEthSignedMessageHash());
 
         bytes memory signature = abi.encodePacked(r, s, v);
         op.signature = signature;
@@ -228,22 +158,11 @@ contract AccountERC4337Test is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress = registry.createAccount(
-            address(implementation),
-            block.chainid,
-            address(tokenCollection),
-            tokenId,
-            0,
-            ""
-        );
+        address accountAddress =
+            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
 
-        bytes memory callData = abi.encodeWithSignature(
-            "execute(address,uint256,bytes,uint256)",
-            user2,
-            0.1 ether,
-            "",
-            0
-        );
+        bytes memory callData =
+            abi.encodeWithSignature("execute(address,uint256,bytes,uint256)", user2, 0.1 ether, "", 0);
 
         UserOperation memory op = UserOperation({
             sender: accountAddress,
@@ -260,10 +179,7 @@ contract AccountERC4337Test is Test {
         });
 
         bytes32 opHash = entryPoint.getUserOpHash(op);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-            1,
-            opHash.toEthSignedMessageHash()
-        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, opHash.toEthSignedMessageHash());
 
         // invalidate signature
         bytes memory signature = abi.encodePacked(r, s, v + 1);

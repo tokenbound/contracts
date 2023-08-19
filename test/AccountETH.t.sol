@@ -11,14 +11,14 @@ import "account-abstraction/core/EntryPoint.sol";
 import "erc6551/ERC6551Registry.sol";
 import "erc6551/interfaces/IERC6551Account.sol";
 
-import "../src/Account.sol";
+import "../src/AccountV3.sol";
 import "../src/AccountGuardian.sol";
 
 import "./mocks/MockERC721.sol";
 
 contract AccountETHTest is Test {
-    Account implementation;
-    AccountGuardian public guardian;
+    ExternalStorage externalStorage;
+    AccountV3 implementation;
     ERC6551Registry public registry;
     IEntryPoint public entryPoint;
 
@@ -26,8 +26,8 @@ contract AccountETHTest is Test {
 
     function setUp() public {
         entryPoint = new EntryPoint();
-        guardian = new AccountGuardian();
-        implementation = new Account(address(guardian), address(entryPoint));
+        externalStorage = new ExternalStorage();
+        implementation = new AccountV3(address(entryPoint), address(externalStorage));
         registry = new ERC6551Registry();
 
         tokenCollection = new MockERC721();
@@ -39,13 +39,8 @@ contract AccountETHTest is Test {
         vm.deal(user1, 0.2 ether);
 
         // get address that account will be deployed to (before token is minted)
-        address accountAddress = registry.account(
-            address(implementation),
-            block.chainid,
-            address(tokenCollection),
-            tokenId,
-            0
-        );
+        address accountAddress =
+            registry.account(address(implementation), block.chainid, address(tokenCollection), tokenId, 0);
 
         // mint token for account to user1
         tokenCollection.mint(user1, tokenId);
@@ -54,24 +49,18 @@ contract AccountETHTest is Test {
 
         // send ETH from user1 to account (prior to account deployment)
         vm.prank(user1);
-        (bool sent, ) = accountAddress.call{value: 0.2 ether}("");
+        (bool sent,) = accountAddress.call{value: 0.2 ether}("");
         assertTrue(sent);
 
         assertEq(accountAddress.balance, 0.2 ether);
 
         // deploy account contract (from a different wallet)
-        address createdAccountInstance = registry.createAccount(
-            address(implementation),
-            block.chainid,
-            address(tokenCollection),
-            tokenId,
-            0,
-            ""
-        );
+        address createdAccountInstance =
+            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
 
         assertEq(accountAddress, createdAccountInstance);
 
-        Account account = Account(payable(accountAddress));
+        AccountV3 account = AccountV3(payable(accountAddress));
 
         // user1 executes transaction to send ETH from account
         vm.prank(user1);
@@ -86,26 +75,20 @@ contract AccountETHTest is Test {
         address user1 = vm.addr(1);
         vm.deal(user1, 0.2 ether);
 
-        address accountAddress = registry.createAccount(
-            address(implementation),
-            block.chainid,
-            address(tokenCollection),
-            tokenId,
-            0,
-            ""
-        );
+        address accountAddress =
+            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
 
         tokenCollection.mint(user1, tokenId);
 
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         vm.prank(user1);
-        (bool sent, ) = accountAddress.call{value: 0.2 ether}("");
+        (bool sent,) = accountAddress.call{value: 0.2 ether}("");
         assertTrue(sent);
 
         assertEq(accountAddress.balance, 0.2 ether);
 
-        Account account = Account(payable(accountAddress));
+        AccountV3 account = AccountV3(payable(accountAddress));
 
         vm.prank(user1);
         account.execute(payable(user1), 0.1 ether, "", 0);

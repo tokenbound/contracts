@@ -38,14 +38,16 @@ contract AccountTest is Test {
         registry = new ERC6551Registry();
 
         tokenCollection = new MockERC721();
+
+        // mint tokenId 1 during setup for accurate cold call gas measurement
+        uint256 tokenId = 1;
+        address user1 = vm.addr(1);
+        tokenCollection.mint(user1, tokenId);
     }
 
-    function testNonOwnerCallsFail(uint256 tokenId) public {
-        address user1 = vm.addr(1);
+    function testNonOwnerCallsFail() public {
+        uint256 tokenId = 1;
         address user2 = vm.addr(2);
-
-        tokenCollection.mint(user1, tokenId);
-        assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress =
             registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
@@ -65,12 +67,10 @@ contract AccountTest is Test {
         account.execute(payable(user2), 0.1 ether, "", 0);
     }
 
-    function testAccountOwnershipTransfer(uint256 tokenId) public {
+    function testAccountOwnershipTransfer() public {
+        uint256 tokenId = 1;
         address user1 = vm.addr(1);
         address user2 = vm.addr(2);
-
-        tokenCollection.mint(user1, tokenId);
-        assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress =
             registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
@@ -78,6 +78,10 @@ contract AccountTest is Test {
         vm.deal(accountAddress, 1 ether);
 
         AccountV3 account = AccountV3(payable(accountAddress));
+
+        // should succeed with original owner
+        vm.prank(user1);
+        account.execute(payable(user1), 0.1 ether, "", 0);
 
         // should fail if user2 tries to use account
         vm.prank(user2);
@@ -94,11 +98,8 @@ contract AccountTest is Test {
         assertEq(user2.balance, 0.1 ether);
     }
 
-    function testMessageVerification(uint256 tokenId) public {
-        address user1 = vm.addr(1);
-
-        tokenCollection.mint(user1, tokenId);
-        assertEq(tokenCollection.ownerOf(tokenId), user1);
+    function testMessageVerification() public {
+        uint256 tokenId = 1;
 
         address accountAddress =
             registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
@@ -115,11 +116,8 @@ contract AccountTest is Test {
         assertEq(returnValue1, IERC1271.isValidSignature.selector);
     }
 
-    function testMessageVerificationFailsInvalidSigner(uint256 tokenId) public {
-        address user1 = vm.addr(1);
-
-        tokenCollection.mint(user1, tokenId);
-        assertEq(tokenCollection.ownerOf(tokenId), user1);
+    function testMessageVerificationFailsInvalidSigner() public {
+        uint256 tokenId = 1;
 
         address accountAddress =
             registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
@@ -222,8 +220,8 @@ contract AccountTest is Test {
     //     assertEq(tokenCollection.ownerOf(tokenId), user1);
 
     //     address accountAddress = registry.createAccount(
-    //         address(implementation), block.chainid, address(tokenCollection), tokenId, 0, abi.encodeWithSignature("initialize()")
-    //     );
+    //         address(implementation), block.chainid, address(tokenCollection), tokenId, 0,  abi.encodeWithSignature("initialize()")
+    //     ;
 
     //     vm.deal(accountAddress, 1 ether);
 
@@ -368,11 +366,9 @@ contract AccountTest is Test {
     //     assertEq(user1.balance, 0.1 ether);
     // }
 
-    function testExecuteCallRevert(uint256 tokenId) public {
+    function testExecuteCallRevert() public {
+        uint256 tokenId = 1;
         address user1 = vm.addr(1);
-
-        tokenCollection.mint(user1, tokenId);
-        assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress =
             registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
