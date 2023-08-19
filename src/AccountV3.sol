@@ -7,12 +7,13 @@ import "erc6551/interfaces/IERC6551Account.sol";
 import "erc6551/interfaces/IERC6551Executable.sol";
 import "erc6551/lib/ERC6551AccountLib.sol";
 
+import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
+import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
-import "./abstract/AssetReceiver.sol";
 import "./abstract/SigningAccount.sol";
 import "./abstract/ExecutableAccount.sol";
 import "./abstract/ERC4337Account.sol";
@@ -36,7 +37,14 @@ contract ExternalStorage {
     function locked() public view returns (bool) {}
 }
 
-contract AccountV3 is IERC6551Account, AssetReceiver, SigningAccount, ExecutableAccount, ERC4337Account {
+contract AccountV3 is
+    IERC6551Account,
+    ERC721Holder,
+    ERC1155Holder,
+    SigningAccount,
+    ExecutableAccount,
+    ERC4337Account
+{
     ExternalStorage public immutable _storage;
 
     constructor(address _entryPoint, address externalStorage) ERC4337Account(_entryPoint) {
@@ -78,11 +86,7 @@ contract AccountV3 is IERC6551Account, AssetReceiver, SigningAccount, Executable
     }
 
     function _isValidSignature(bytes32 hash, bytes calldata signature) internal view override returns (bool) {
-        bool result = SignatureChecker.isValidSignatureNow(owner(), hash, signature);
-        console.logBytes32(hash);
-        console.logBytes(signature);
-        console.log(result);
-        return result;
+        return SignatureChecker.isValidSignatureNow(owner(), hash, signature);
     }
 
     function _isValidExecutor(address executor, address, uint256, bytes calldata, uint256)
