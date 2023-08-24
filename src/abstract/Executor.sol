@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
+import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
+
 import "erc6551/interfaces/IERC6551Executable.sol";
+
 import "../utils/Errors.sol";
 import "../lib/LibExecutor.sol";
 import "../lib/LibSandbox.sol";
 import "./SandboxExecutor.sol";
 
-abstract contract Executor is IERC6551Executable, SandboxExecutor {
+abstract contract Executor is IERC6551Executable, ERC2771Context, SandboxExecutor {
     struct Operation {
         address to;
         uint256 value;
@@ -20,12 +23,14 @@ abstract contract Executor is IERC6551Executable, SandboxExecutor {
     uint256 constant OP_CREATE = 2;
     uint256 constant OP_CREATE2 = 3;
 
+    constructor(address multicallForwarder) ERC2771Context(multicallForwarder) {}
+
     function execute(address to, uint256 value, bytes calldata data, uint256 operation)
         external
         payable
         returns (bytes memory)
     {
-        if (!_isValidExecutor(msg.sender)) revert NotAuthorized();
+        if (!_isValidExecutor(_msgSender())) revert NotAuthorized();
 
         _beforeExecute();
 
@@ -33,7 +38,7 @@ abstract contract Executor is IERC6551Executable, SandboxExecutor {
     }
 
     function executeBatch(Operation[] calldata operations) external payable returns (bytes[] memory) {
-        if (!_isValidExecutor(msg.sender)) revert NotAuthorized();
+        if (!_isValidExecutor(_msgSender())) revert NotAuthorized();
 
         _beforeExecute();
 

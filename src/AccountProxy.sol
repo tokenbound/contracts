@@ -7,23 +7,22 @@ import "@openzeppelin/contracts/proxy/Proxy.sol";
 error InvalidImplementation();
 
 contract AccountProxy is Proxy, ERC1967Upgrade {
-    address immutable defaultImplementation;
+    address immutable staticImplementation;
 
-    constructor(address _defaultImplementation) {
-        if (_defaultImplementation == address(0))
+    constructor(address _staticImplementation) {
+        if (_staticImplementation == address(0)) {
             revert InvalidImplementation();
-        defaultImplementation = _defaultImplementation;
-    }
-
-    function initialize() external {
-        address implementation = ERC1967Upgrade._getImplementation();
-
-        if (implementation == address(0)) {
-            ERC1967Upgrade._upgradeTo(defaultImplementation);
         }
+        staticImplementation = _staticImplementation;
     }
 
     function _implementation() internal view override returns (address) {
-        return ERC1967Upgrade._getImplementation();
+        address implementation = ERC1967Upgrade._getImplementation();
+
+        if (implementation == address(0)) {
+            return staticImplementation;
+        }
+
+        return implementation;
     }
 }

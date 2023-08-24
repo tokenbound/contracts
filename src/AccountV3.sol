@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import "forge-std/console.sol";
-
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
+import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 import "./abstract/AssetReceiver.sol";
@@ -14,7 +13,10 @@ import "./abstract/ERC6551Account.sol";
 import "./abstract/ERC4337Account.sol";
 
 contract AccountV3 is AssetReceiver, Lockable, Overridable, Permissioned, ERC6551Account, ERC4337Account {
-    constructor(address entryPoint_) ERC4337Account(entryPoint_) {}
+    constructor(address entryPoint_, address multicallForwarder)
+        ERC4337Account(entryPoint_)
+        Executor(multicallForwarder)
+    {}
 
     receive() external payable override {
         _handleOverride();

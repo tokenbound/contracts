@@ -3,7 +3,6 @@ pragma solidity ^0.8.13;
 
 import "../utils/Errors.sol";
 import "../lib/LibSandbox.sol";
-import "./Lockable.sol";
 
 abstract contract Overridable {
     /// @dev mapping from owner => selector => implementation
