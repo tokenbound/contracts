@@ -6,34 +6,25 @@ import "forge-std/console.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
-import "./abstract/Storage.sol";
-import "./abstract/ERC6551Account.sol";
 import "./abstract/AssetReceiver.sol";
-import "./abstract/Signatory.sol";
-import "./abstract/Executor.sol";
-import "./abstract/SandboxExecutor.sol";
-import "./abstract/ERC4337Account.sol";
+import "./abstract/Lockable.sol";
 import "./abstract/Overridable.sol";
 import "./abstract/Permissioned.sol";
-import "./abstract/Lockable.sol";
+import "./abstract/ERC6551Account.sol";
+import "./abstract/ERC4337Account.sol";
 
-contract AccountV3 is
-    Storage,
-    Lockable,
-    Overridable,
-    Permissioned,
-    ERC6551Account,
-    AssetReceiver,
-    Signatory,
-    Executor,
-    SandboxExecutor,
-    ERC4337Account
-{
+contract AccountV3 is AssetReceiver, Lockable, Overridable, Permissioned, ERC6551Account, ERC4337Account {
     constructor(address entryPoint_) ERC4337Account(entryPoint_) {}
 
-    fallback() external payable {}
+    receive() external payable override {
+        _handleOverride();
+    }
 
-    function owner() public view override returns (address) {
+    fallback() external payable {
+        _handleOverride();
+    }
+
+    function owner() public view returns (address) {
         (uint256 chainId, address tokenContract, uint256 tokenId) = token();
 
         if (chainId != block.chainid) return address(0);
@@ -41,21 +32,56 @@ contract AccountV3 is
         return IERC721(tokenContract).ownerOf(tokenId);
     }
 
-    function _isValidSigner(address signer, bytes memory) internal view override returns (bool) {
+    function _isValidSigner(address signer, bytes memory) internal view virtual override returns (bool) {
         return signer == owner();
     }
 
-    function _isValidSignature(bytes32 hash, bytes calldata signature) internal view override returns (bool) {
+    function _isValidSignature(bytes32 hash, bytes calldata signature)
+        internal
+        view
+        override(ERC4337Account, Signatory)
+        returns (bool)
+    {
         return SignatureChecker.isValidSignatureNow(owner(), hash, signature);
     }
 
-    function _isValidExecutor(address executor, address, uint256, bytes calldata, uint256)
-        internal
-        view
-        virtual
-        override
-        returns (bool)
-    {
+    function _isValidExecutor(address executor) internal view virtual override returns (bool) {
         return executor == address(entryPoint()) || _isValidSigner(executor, "");
+    }
+
+    function _beforeExecute() internal override {
+        if (isLocked()) revert AccountLocked();
+        _transitionState();
+    }
+
+    function _getStorageOwner() internal view virtual override(Overridable, Permissioned) returns (address) {
+        return owner();
+    }
+
+    function _canLockAccount() internal view virtual override returns (bool) {
+        return _isValidSigner(msg.sender, "");
+    }
+
+    function _beforeLock() internal override {
+        if (isLocked()) revert AccountLocked();
+        _transitionState();
+    }
+
+    function _canSetOverrides() internal view virtual override returns (bool) {
+        return _isValidSigner(msg.sender, "");
+    }
+
+    function _beforeSetOverrides() internal override {
+        if (isLocked()) revert AccountLocked();
+        _transitionState();
+    }
+
+    function _canSetPermissions() internal view virtual override returns (bool) {
+        return _isValidSigner(msg.sender, "");
+    }
+
+    function _beforeSetPermissions() internal override {
+        if (isLocked()) revert AccountLocked();
+        _transitionState();
     }
 }

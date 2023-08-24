@@ -6,17 +6,13 @@ import "erc6551/interfaces/IERC6551Account.sol";
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-import "./Validator.sol";
-import "./Hooks.sol";
+import "./Signatory.sol";
+import "./Executor.sol";
 
-import "./StorageAccess.sol";
+abstract contract ERC6551Account is IERC6551Account, Executor, Signatory {
+    uint256 _state;
 
-abstract contract ERC6551Account is IERC6551Account, StorageAccess, Validator, Hooks {
-    receive() external payable {}
-
-    function state() external view returns (uint256) {
-        return _getState();
-    }
+    receive() external payable virtual {}
 
     function isValidSigner(address signer, bytes calldata data) external view returns (bytes4 magicValue) {
         if (_isValidSigner(signer, data)) {
@@ -30,13 +26,13 @@ abstract contract ERC6551Account is IERC6551Account, StorageAccess, Validator, H
         return ERC6551AccountLib.token();
     }
 
-    function _beforeExecute(address to, uint256 value, bytes calldata data, uint256 operation)
-        internal
-        virtual
-        override
-    {
-        uint256 _state = _getState();
-        bytes32 executionHash = keccak256(abi.encode(to, value, data, operation));
-        _setState(uint256(keccak256(abi.encode(_state, executionHash))));
+    function state() public view returns (uint256) {
+        return _state;
     }
+
+    function _transitionState() internal {
+        _state = uint256(keccak256(abi.encode(_state, keccak256(msg.data))));
+    }
+
+    function _isValidSigner(address signer, bytes memory) internal view virtual returns (bool);
 }

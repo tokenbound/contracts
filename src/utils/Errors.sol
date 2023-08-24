@@ -5,3 +5,5 @@ error InvalidOperation();
 error ContractCreationFailed();
 error NotAuthorized();
 error InvalidInput();
+error ExceedsMaxLockTime();
+error AccountLocked();

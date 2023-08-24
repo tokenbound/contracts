@@ -3,11 +3,10 @@ pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
-import {BaseAccount as BaseERC4337Account, UserOperation} from "account-abstraction/core/BaseAccount.sol";
+import {UserOperation} from "account-abstraction/interfaces/UserOperation.sol";
+import {BaseAccount as BaseERC4337Account} from "account-abstraction/core/BaseAccount.sol";
 
-import "./Validator.sol";
-
-abstract contract ERC4337Account is BaseERC4337Account, Validator {
+abstract contract ERC4337Account is BaseERC4337Account {
     using ECDSA for bytes32;
 
     IEntryPoint immutable _entryPoint;
@@ -42,4 +41,6 @@ abstract contract ERC4337Account is BaseERC4337Account, Validator {
     {
         return userOpHash.toEthSignedMessageHash();
     }
+
+    function _isValidSignature(bytes32 hash, bytes calldata signature) internal view virtual returns (bool);
 }
