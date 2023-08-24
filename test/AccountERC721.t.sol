@@ -20,7 +20,6 @@ import "./mocks/MockExecutor.sol";
 contract AccountERC721Test is Test {
     MockERC721 public dummyERC721;
 
-    ExternalStorage externalStorage;
     AccountV3 implementation;
     ERC6551Registry public registry;
     IEntryPoint public entryPoint;
@@ -31,8 +30,7 @@ contract AccountERC721Test is Test {
         dummyERC721 = new MockERC721();
 
         entryPoint = new EntryPoint();
-        externalStorage = new ExternalStorage();
-        implementation = new AccountV3(address(entryPoint), address(externalStorage));
+        implementation = new AccountV3(address(entryPoint));
         registry = new ERC6551Registry();
 
         tokenCollection = new MockERC721();

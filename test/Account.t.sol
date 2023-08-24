@@ -21,7 +21,6 @@ import "./mocks/MockReverter.sol";
 import "./mocks/MockAccount.sol";
 
 contract AccountTest is Test {
-    ExternalStorage externalStorage;
     AccountV3 implementation;
     ERC6551Registry public registry;
     AccountGuardian public guardian;
@@ -32,8 +31,7 @@ contract AccountTest is Test {
     function setUp() public {
         entryPoint = new EntryPoint();
         guardian = new AccountGuardian();
-        externalStorage = new ExternalStorage();
-        implementation = new AccountV3(address(entryPoint), address(externalStorage));
+        implementation = new AccountV3(address(entryPoint));
 
         registry = new ERC6551Registry();
 

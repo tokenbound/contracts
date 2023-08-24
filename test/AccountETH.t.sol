@@ -17,7 +17,6 @@ import "../src/AccountGuardian.sol";
 import "./mocks/MockERC721.sol";
 
 contract AccountETHTest is Test {
-    ExternalStorage externalStorage;
     AccountV3 implementation;
     ERC6551Registry public registry;
     IEntryPoint public entryPoint;
@@ -26,8 +25,7 @@ contract AccountETHTest is Test {
 
     function setUp() public {
         entryPoint = new EntryPoint();
-        externalStorage = new ExternalStorage();
-        implementation = new AccountV3(address(entryPoint), address(externalStorage));
+        implementation = new AccountV3(address(entryPoint));
         registry = new ERC6551Registry();
 
         tokenCollection = new MockERC721();

@@ -20,7 +20,6 @@ import "./mocks/MockERC721.sol";
 contract AccountERC4337Test is Test {
     using ECDSA for bytes32;
 
-    ExternalStorage externalStorage;
     AccountV3 implementation;
     ERC6551Registry public registry;
     IEntryPoint public entryPoint;
@@ -29,8 +28,7 @@ contract AccountERC4337Test is Test {
 
     function setUp() public {
         entryPoint = new EntryPoint();
-        externalStorage = new ExternalStorage();
-        implementation = new AccountV3(address(entryPoint), address(externalStorage));
+        implementation = new AccountV3(address(entryPoint));
         registry = new ERC6551Registry();
 
         tokenCollection = new MockERC721();
