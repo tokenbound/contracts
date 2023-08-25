@@ -26,7 +26,7 @@ contract AccountERC721Test is Test {
     function setUp() public {
         dummyERC721 = new MockERC721();
 
-        implementation = new AccountV3(address(0), address(0));
+        implementation = new AccountV3(address(0), address(0), address(0));
         registry = new ERC6551Registry();
 
         tokenCollection = new MockERC721();
@@ -127,28 +127,28 @@ contract AccountERC721Test is Test {
     //     tokenCollection.safeTransferFrom(owners[6], accounts[0], 7);
     // }
 
-    // function testOverrideERC721Receiver(uint256 tokenId) public {
-    //     address user1 = vm.addr(1);
+    function testOverrideERC721Receiver(uint256 tokenId) public {
+        address user1 = vm.addr(1);
 
-    //     tokenCollection.mint(user1, tokenId);
-    //     assertEq(tokenCollection.ownerOf(tokenId), user1);
+        tokenCollection.mint(user1, tokenId);
+        assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-    //     address accountAddress =
-    //         registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
+        address accountAddress =
+            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
 
-    //     Account account = Account(payable(accountAddress));
+        AccountV3 account = AccountV3(payable(accountAddress));
 
-    //     MockExecutor mockExecutor = new MockExecutor();
+        MockExecutor mockExecutor = new MockExecutor();
 
-    //     // set overrides on account
-    //     bytes4[] memory selectors = new bytes4[](1);
-    //     selectors[0] = bytes4(abi.encodeWithSignature("onERC721Received(address,address,uint256,bytes)"));
-    //     address[] memory implementations = new address[](1);
-    //     implementations[0] = address(mockExecutor);
-    //     vm.prank(user1);
-    //     account.setOverrides(selectors, implementations);
+        // set overrides on account
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = bytes4(abi.encodeWithSignature("onERC721Received(address,address,uint256,bytes)"));
+        address[] memory implementations = new address[](1);
+        implementations[0] = address(mockExecutor);
+        vm.prank(user1);
+        account.setOverrides(selectors, implementations);
 
-    //     vm.expectRevert("ERC721: transfer to non ERC721Receiver implementer");
-    //     dummyERC721.mint(accountAddress, 1);
-    // }
+        vm.expectRevert("ERC721: transfer to non ERC721Receiver implementer");
+        dummyERC721.mint(accountAddress, 1);
+    }
 }

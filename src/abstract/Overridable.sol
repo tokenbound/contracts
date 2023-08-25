@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
+import "forge-std/console.sol";
+
 import "../utils/Errors.sol";
 import "../lib/LibSandbox.sol";
 
@@ -14,9 +16,14 @@ abstract contract Overridable {
     function setOverrides(bytes4[] calldata selectors, address[] calldata implementations) external virtual {
         address _owner = _getStorageOwner();
 
+        if (_owner == address(0)) revert NotAuthorized();
+
         if (!_canSetOverrides()) revert NotAuthorized();
 
         _beforeSetOverrides();
+
+        address sandbox = LibSandbox.sandbox(address(this));
+        if (sandbox.code.length == 0) LibSandbox.deploy(address(this));
 
         uint256 length = selectors.length;
 
@@ -35,7 +42,7 @@ abstract contract Overridable {
 
         if (implementation != address(0)) {
             address sandbox = LibSandbox.sandbox(address(this));
-            (bool success, bytes memory result) = implementation.call(abi.encodePacked(sandbox, msg.data));
+            (bool success, bytes memory result) = sandbox.call(abi.encodePacked(implementation, msg.data));
             assembly {
                 if iszero(success) { revert(add(result, 32), mload(result)) }
                 return(add(result, 32), mload(result))

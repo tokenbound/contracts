@@ -13,9 +13,9 @@ import "./abstract/ERC6551Account.sol";
 import "./abstract/ERC4337Account.sol";
 
 contract AccountV3 is AssetReceiver, Lockable, Overridable, Permissioned, ERC6551Account, ERC4337Account {
-    constructor(address entryPoint_, address multicallForwarder)
+    constructor(address entryPoint_, address multicallForwarder, address erc6551Registry)
         ERC4337Account(entryPoint_)
-        Executor(multicallForwarder)
+        Executor(multicallForwarder, erc6551Registry)
     {}
 
     receive() external payable override {
@@ -34,8 +34,49 @@ contract AccountV3 is AssetReceiver, Lockable, Overridable, Permissioned, ERC655
         return IERC721(tokenContract).ownerOf(tokenId);
     }
 
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override(ERC1155Receiver, ERC6551Account)
+        returns (bool)
+    {
+        bool interfaceSupported = super.supportsInterface(interfaceId);
+
+        if (interfaceSupported) return true;
+
+        _handleOverrideStatic();
+
+        return false;
+    }
+
+    function onERC721Received(address, address, uint256, bytes memory) public virtual override returns (bytes4) {
+        _handleOverrideStatic();
+        return this.onERC721Received.selector;
+    }
+
+    function onERC1155Received(address, address, uint256, uint256, bytes memory)
+        public
+        virtual
+        override
+        returns (bytes4)
+    {
+        _handleOverrideStatic();
+        return this.onERC1155Received.selector;
+    }
+
+    function onERC1155BatchReceived(address, address, uint256[] memory, uint256[] memory, bytes memory)
+        public
+        virtual
+        override
+        returns (bytes4)
+    {
+        _handleOverrideStatic();
+        return this.onERC1155BatchReceived.selector;
+    }
+
     function _isValidSigner(address signer, bytes memory) internal view virtual override returns (bool) {
-        return signer == owner();
+        return signer == owner() || hasPermission(signer);
     }
 
     function _isValidSignature(bytes32 hash, bytes calldata signature)
@@ -61,7 +102,7 @@ contract AccountV3 is AssetReceiver, Lockable, Overridable, Permissioned, ERC655
     }
 
     function _canLockAccount() internal view virtual override returns (bool) {
-        return _isValidSigner(msg.sender, "");
+        return _isValidSigner(_msgSender(), "");
     }
 
     function _beforeLock() internal override {
@@ -70,7 +111,7 @@ contract AccountV3 is AssetReceiver, Lockable, Overridable, Permissioned, ERC655
     }
 
     function _canSetOverrides() internal view virtual override returns (bool) {
-        return _isValidSigner(msg.sender, "");
+        return _isValidSigner(_msgSender(), "");
     }
 
     function _beforeSetOverrides() internal override {
@@ -79,7 +120,7 @@ contract AccountV3 is AssetReceiver, Lockable, Overridable, Permissioned, ERC655
     }
 
     function _canSetPermissions() internal view virtual override returns (bool) {
-        return _isValidSigner(msg.sender, "");
+        return _isValidSigner(_msgSender(), "");
     }
 
     function _beforeSetPermissions() internal override {

@@ -12,6 +12,9 @@ abstract contract Permissioned {
     /// @dev grants a given caller execution permissions
     function setPermissions(address[] calldata callers, bool[] calldata _permissions) external virtual {
         address _owner = _getStorageOwner();
+
+        if (_owner == address(0)) revert NotAuthorized();
+
         if (!_canSetPermissions()) revert NotAuthorized();
 
         _beforeSetPermissions();

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 import "erc6551/lib/ERC6551AccountLib.sol";
 import "erc6551/interfaces/IERC6551Account.sol";
@@ -9,7 +10,7 @@ import "erc6551/interfaces/IERC6551Account.sol";
 import "./Signatory.sol";
 import "./Executor.sol";
 
-abstract contract ERC6551Account is IERC6551Account, Executor, Signatory {
+abstract contract ERC6551Account is IERC6551Account, ERC165, Executor, Signatory {
     uint256 _state;
 
     receive() external payable virtual {}
@@ -30,8 +31,13 @@ abstract contract ERC6551Account is IERC6551Account, Executor, Signatory {
         return _state;
     }
 
-    function _transitionState() internal {
-        _state = uint256(keccak256(abi.encode(_state, keccak256(msg.data))));
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        return interfaceId == type(IERC6551Account).interfaceId || interfaceId == type(IERC6551Executable).interfaceId
+            || super.supportsInterface(interfaceId);
+    }
+
+    function _transitionState() internal virtual {
+        _state = uint256(keccak256(abi.encode(_state, keccak256(_msgData()))));
     }
 
     function _isValidSigner(address signer, bytes memory) internal view virtual returns (bool);

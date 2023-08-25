@@ -21,7 +21,7 @@ contract AccountETHTest is Test {
     MockERC721 public tokenCollection;
 
     function setUp() public {
-        implementation = new AccountV3(address(0), address(0));
+        implementation = new AccountV3(address(0), address(0), address(0));
         registry = new ERC6551Registry();
 
         tokenCollection = new MockERC721();

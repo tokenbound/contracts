@@ -15,17 +15,6 @@ library LibExecutor {
         }
     }
 
-    function _delegatecall(address to, bytes memory data) internal returns (bytes memory result) {
-        bool success;
-        (success, result) = to.delegatecall(data);
-
-        if (!success) {
-            assembly {
-                revert(add(result, 32), mload(result))
-            }
-        }
-    }
-
     function _create(uint256 value, bytes memory data) internal returns (address created) {
         bytes memory bytecode = data;
 

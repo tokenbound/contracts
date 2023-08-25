@@ -17,11 +17,6 @@ abstract contract SandboxExecutor {
         return LibExecutor._call(to, value, data);
     }
 
-    function extdelegatecall(address to, bytes calldata data) external returns (bytes memory result) {
-        _requireFromSandbox();
-        return LibExecutor._delegatecall(to, data);
-    }
-
     function extcreate(uint256 value, bytes calldata data) external returns (address) {
         _requireFromSandbox();
 

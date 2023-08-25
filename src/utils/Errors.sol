@@ -7,3 +7,4 @@ error NotAuthorized();
 error InvalidInput();
 error ExceedsMaxLockTime();
 error AccountLocked();
+error InvalidAccountProof();
