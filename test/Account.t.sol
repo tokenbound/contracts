@@ -19,6 +19,7 @@ import "../src/utils/MulticallForwarder.sol";
 
 import "./mocks/MockERC721.sol";
 import "./mocks/MockExecutor.sol";
+import "./mocks/MockSandboxExecutor.sol";
 import "./mocks/MockReverter.sol";
 import "./mocks/MockAccountUpgradable.sol";
 
@@ -585,6 +586,58 @@ contract AccountTest is Test {
             assertFalse(results[i].success);
             assertEq(bytes4(results[i].returnData), NotAuthorized.selector);
         }
+    }
+
+    function testExecuteSandbox() public {
+        uint256 tokenId = 1;
+        address user1 = vm.addr(1);
+
+        address accountAddress =
+            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
+
+        vm.deal(accountAddress, 1 ether);
+
+        AccountV3 account = AccountV3(payable(accountAddress));
+
+        MockSandboxExecutor mockSandboxExecutor = new MockSandboxExecutor();
+
+        vm.prank(user1);
+        vm.expectRevert(MockReverter.MockError.selector);
+        account.execute(address(mockSandboxExecutor), 0, abi.encodeWithSignature("fail()"), 1);
+
+        vm.prank(user1);
+        bytes memory result =
+            account.execute(address(mockSandboxExecutor), 0, abi.encodeWithSignature("customFunction()"), 1);
+
+        assertEq(uint256(bytes32(result)), 12345);
+
+        vm.prank(user1);
+        result = account.execute(
+            address(mockSandboxExecutor),
+            0,
+            abi.encodeWithSignature("sentEther(address,uint256)", vm.addr(2), 0.1 ether),
+            1
+        );
+
+        assertEq(accountAddress.balance, 0.9 ether);
+        assertEq(vm.addr(2).balance, 0.1 ether);
+
+        vm.prank(user1);
+        result = account.execute(address(mockSandboxExecutor), 0, abi.encodeWithSignature("createNFT()"), 1);
+        address deployedNFT = address(uint160(uint256(bytes32(result))));
+
+        assertTrue(deployedNFT.code.length > 0);
+
+        vm.prank(user1);
+        result =
+            account.execute(address(mockSandboxExecutor), 0, abi.encodeWithSignature("createNFTDeterministic()"), 1);
+        deployedNFT = address(uint160(uint256(bytes32(result))));
+
+        assertTrue(deployedNFT.code.length > 0);
+
+        vm.prank(user1);
+        result = account.execute(address(mockSandboxExecutor), 0, abi.encodeWithSignature("getSlot0()"), 1);
+        assertEq(uint256(bytes32(result)), 0);
     }
 
     function testAccountOwnerIsNullIfContextNotSet() public {

@@ -3,11 +3,12 @@ pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/utils/Create2.sol";
 
+import "../interfaces/ISandboxExecutor.sol";
 import "../utils/Errors.sol";
 import "../lib/LibSandbox.sol";
 import "../lib/LibExecutor.sol";
 
-abstract contract SandboxExecutor {
+abstract contract SandboxExecutor is ISandboxExecutor {
     function _requireFromSandbox() internal view {
         if (msg.sender != LibSandbox.sandbox(address(this))) revert NotAuthorized();
     }
