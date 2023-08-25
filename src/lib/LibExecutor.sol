@@ -25,9 +25,8 @@ library LibExecutor {
         if (created == address(0)) revert ContractCreationFailed();
     }
 
-    function _create2(uint256 value, bytes calldata data) internal returns (address created) {
-        bytes32 salt = bytes32(data[:32]);
-        bytes memory bytecode = data[32:];
+    function _create2(uint256 value, bytes32 salt, bytes calldata data) internal returns (address created) {
+        bytes memory bytecode = data;
 
         assembly {
             created := create2(value, add(bytecode, 0x20), mload(bytecode), salt)

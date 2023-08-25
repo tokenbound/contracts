@@ -18,15 +18,15 @@ abstract contract SandboxExecutor is ISandboxExecutor {
         return LibExecutor._call(to, value, data);
     }
 
-    function extcreate(uint256 value, bytes calldata data) external returns (address) {
+    function extcreate(uint256 value, bytes calldata bytecode) external returns (address) {
         _requireFromSandbox();
 
-        return LibExecutor._create(value, data);
+        return LibExecutor._create(value, bytecode);
     }
 
-    function extcreate2(uint256 value, bytes calldata data) external returns (address) {
+    function extcreate2(uint256 value, bytes32 salt, bytes calldata bytecode) external returns (address) {
         _requireFromSandbox();
-        return LibExecutor._create2(value, data);
+        return LibExecutor._create2(value, salt, bytecode);
     }
 
     function extsload(bytes32 slot) external view returns (bytes32 value) {

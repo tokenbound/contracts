@@ -392,6 +392,22 @@ contract AccountTest is Test {
         account.execute(payable(address(mockReverter)), 0, abi.encodeWithSignature("fail()"), 0);
     }
 
+    function testExecuteInvalidOperation() public {
+        uint256 tokenId = 1;
+        address user1 = vm.addr(1);
+
+        address accountAddress =
+            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
+
+        vm.deal(accountAddress, 1 ether);
+
+        AccountV3 account = AccountV3(payable(accountAddress));
+
+        vm.prank(user1);
+        vm.expectRevert(InvalidOperation.selector);
+        account.execute(vm.addr(2), 0.1 ether, "", type(uint256).max);
+    }
+
     function testExecuteCreate() public {
         uint256 tokenId = 1;
         address user1 = vm.addr(1);
@@ -598,6 +614,15 @@ contract AccountTest is Test {
         vm.deal(accountAddress, 1 ether);
 
         AccountV3 account = AccountV3(payable(accountAddress));
+
+        vm.expectRevert(NotAuthorized.selector);
+        account.extcall(vm.addr(2), 0.1 ether, "");
+
+        vm.expectRevert(NotAuthorized.selector);
+        account.extcreate(0, type(MockERC721).creationCode);
+
+        vm.expectRevert(NotAuthorized.selector);
+        account.extcreate2(0, keccak256("salt"), type(MockERC721).creationCode);
 
         MockSandboxExecutor mockSandboxExecutor = new MockSandboxExecutor();
 

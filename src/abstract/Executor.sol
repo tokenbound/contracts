@@ -108,7 +108,11 @@ abstract contract Executor is IERC6551Executable, ERC2771Context, SandboxExecuto
             return LibExecutor._call(sandbox, value, abi.encodePacked(to, data));
         }
         if (operation == OP_CREATE) return abi.encodePacked(LibExecutor._create(value, data));
-        if (operation == OP_CREATE2) return abi.encodePacked(LibExecutor._create2(value, data));
+        if (operation == OP_CREATE2) {
+            bytes32 salt = bytes32(data[:32]);
+            bytes calldata bytecode = data[32:];
+            return abi.encodePacked(LibExecutor._create2(value, salt, bytecode));
+        }
 
         revert InvalidOperation();
     }
