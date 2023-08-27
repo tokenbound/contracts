@@ -2,8 +2,34 @@
 pragma solidity ^0.8.13;
 
 import "../utils/Errors.sol";
+import "./LibSandbox.sol";
 
 library LibExecutor {
+    uint256 constant OP_CALL = 0;
+    uint256 constant OP_DELEGATECALL = 1;
+    uint256 constant OP_CREATE = 2;
+    uint256 constant OP_CREATE2 = 3;
+
+    function _execute(address to, uint256 value, bytes calldata data, uint256 operation)
+        internal
+        returns (bytes memory)
+    {
+        if (operation == OP_CALL) return _call(to, value, data);
+        if (operation == OP_DELEGATECALL) {
+            address sandbox = LibSandbox.sandbox(address(this));
+            if (sandbox.code.length == 0) LibSandbox.deploy(address(this));
+            return _call(sandbox, value, abi.encodePacked(to, data));
+        }
+        if (operation == OP_CREATE) return abi.encodePacked(_create(value, data));
+        if (operation == OP_CREATE2) {
+            bytes32 salt = bytes32(data[:32]);
+            bytes calldata bytecode = data[32:];
+            return abi.encodePacked(_create2(value, salt, bytecode));
+        }
+
+        revert InvalidOperation();
+    }
+
     function _call(address to, uint256 value, bytes memory data) internal returns (bytes memory result) {
         bool success;
         (success, result) = to.call{value: value}(data);

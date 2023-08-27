@@ -483,10 +483,10 @@ contract AccountTest is Test {
 
         AccountV3 account = AccountV3(payable(accountAddress));
 
-        Executor.Operation[] memory operations = new Executor.Operation[](3);
-        operations[0] = Executor.Operation(vm.addr(2), 0.1 ether, "", 0);
-        operations[1] = Executor.Operation(vm.addr(3), 0.1 ether, "", 0);
-        operations[2] = Executor.Operation(vm.addr(4), 0.1 ether, "", 0);
+        BatchExecutor.Operation[] memory operations = new BatchExecutor.Operation[](3);
+        operations[0] = BatchExecutor.Operation(vm.addr(2), 0.1 ether, "", 0);
+        operations[1] = BatchExecutor.Operation(vm.addr(3), 0.1 ether, "", 0);
+        operations[2] = BatchExecutor.Operation(vm.addr(4), 0.1 ether, "", 0);
 
         uint256 state = account.state();
 
@@ -529,9 +529,9 @@ contract AccountTest is Test {
 
         AccountV3 nestedAccount = AccountV3(payable(accountAddress3));
 
-        Executor.ERC6551AccountInfo[] memory proof = new Executor.ERC6551AccountInfo[](2);
-        proof[0] = Executor.ERC6551AccountInfo(address(tokenCollection), 1, 0);
-        proof[1] = Executor.ERC6551AccountInfo(address(tokenCollection), 2, 0);
+        NestedAccountExecutor.ERC6551AccountInfo[] memory proof = new NestedAccountExecutor.ERC6551AccountInfo[](2);
+        proof[0] = NestedAccountExecutor.ERC6551AccountInfo(address(tokenCollection), 1, 0);
+        proof[1] = NestedAccountExecutor.ERC6551AccountInfo(address(tokenCollection), 2, 0);
 
         uint256 state = nestedAccount.state();
 

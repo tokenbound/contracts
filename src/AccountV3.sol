@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
+import "forge-std/console.sol";
+
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
 import "./abstract/AssetReceiver.sol";
 import "./abstract/Lockable.sol";
@@ -11,11 +14,20 @@ import "./abstract/Overridable.sol";
 import "./abstract/Permissioned.sol";
 import "./abstract/ERC6551Account.sol";
 import "./abstract/ERC4337Account.sol";
+import "./abstract/execution/TokenboundExecutor.sol";
 
-contract AccountV3 is AssetReceiver, Lockable, Overridable, Permissioned, ERC6551Account, ERC4337Account {
+contract AccountV3 is
+    AssetReceiver,
+    Lockable,
+    Overridable,
+    Permissioned,
+    ERC6551Account,
+    ERC4337Account,
+    TokenboundExecutor
+{
     constructor(address entryPoint_, address multicallForwarder, address erc6551Registry)
         ERC4337Account(entryPoint_)
-        Executor(multicallForwarder, erc6551Registry)
+        TokenboundExecutor(multicallForwarder, erc6551Registry)
     {}
 
     receive() external payable override {
@@ -30,15 +42,20 @@ contract AccountV3 is AssetReceiver, Lockable, Overridable, Permissioned, ERC655
         (uint256 chainId, address tokenContract, uint256 tokenId) = token();
 
         if (chainId != block.chainid) return address(0);
+        if (tokenContract.code.length == 0) return address(0);
 
-        return IERC721(tokenContract).ownerOf(tokenId);
+        try IERC721(tokenContract).ownerOf(tokenId) returns (address _owner) {
+            return _owner;
+        } catch {
+            return address(0);
+        }
     }
 
     function supportsInterface(bytes4 interfaceId)
         public
         view
         virtual
-        override(ERC1155Receiver, ERC6551Account)
+        override(ERC1155Receiver, ERC6551Account, ERC6551Executor)
         returns (bool)
     {
         bool interfaceSupported = super.supportsInterface(interfaceId);
@@ -89,7 +106,13 @@ contract AccountV3 is AssetReceiver, Lockable, Overridable, Permissioned, ERC655
     }
 
     function _isValidExecutor(address executor) internal view virtual override returns (bool) {
-        return executor == address(entryPoint()) || _isValidSigner(executor, "");
+        if (executor == address(entryPoint())) return true;
+
+        return _isValidSigner(executor, "");
+    }
+
+    function _transitionState() internal virtual {
+        _state = uint256(keccak256(abi.encode(_state, keccak256(_msgData()))));
     }
 
     function _beforeExecute() internal override {

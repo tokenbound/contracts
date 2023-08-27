@@ -8,9 +8,8 @@ import "erc6551/lib/ERC6551AccountLib.sol";
 import "erc6551/interfaces/IERC6551Account.sol";
 
 import "./Signatory.sol";
-import "./Executor.sol";
 
-abstract contract ERC6551Account is IERC6551Account, ERC165, Executor, Signatory {
+abstract contract ERC6551Account is IERC6551Account, ERC165, Signatory {
     uint256 _state;
 
     receive() external payable virtual {}
@@ -32,12 +31,7 @@ abstract contract ERC6551Account is IERC6551Account, ERC165, Executor, Signatory
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IERC6551Account).interfaceId || interfaceId == type(IERC6551Executable).interfaceId
-            || super.supportsInterface(interfaceId);
-    }
-
-    function _transitionState() internal virtual {
-        _state = uint256(keccak256(abi.encode(_state, keccak256(_msgData()))));
+        return interfaceId == type(IERC6551Account).interfaceId || super.supportsInterface(interfaceId);
     }
 
     function _isValidSigner(address signer, bytes memory) internal view virtual returns (bool);
