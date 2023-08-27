@@ -18,6 +18,7 @@ import "../src/AccountProxy.sol";
 import "../src/utils/MulticallForwarder.sol";
 
 import "./mocks/MockERC721.sol";
+import "./mocks/MockSigner.sol";
 import "./mocks/MockExecutor.sol";
 import "./mocks/MockSandboxExecutor.sol";
 import "./mocks/MockReverter.sol";
@@ -103,7 +104,7 @@ contract AccountTest is Test {
         assertEq(user2.balance, 0.1 ether);
     }
 
-    function testMessageVerification() public {
+    function testSignatureVerification() public {
         uint256 tokenId = 1;
 
         address accountAddress =
@@ -114,14 +115,35 @@ contract AccountTest is Test {
         bytes32 hash = keccak256("This is a signed message");
         (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(1, hash);
 
+        // ECDSA signature
         bytes memory signature1 = abi.encodePacked(r1, s1, v1);
+        bytes4 returnValue = account.isValidSignature(hash, signature1);
+        assertEq(returnValue, IERC1271.isValidSignature.selector);
 
-        bytes4 returnValue1 = account.isValidSignature(hash, signature1);
+        address mockSigner = address(new MockSigner());
 
-        assertEq(returnValue1, IERC1271.isValidSignature.selector);
+        address[] memory callers = new address[](1);
+        callers[0] = address(mockSigner);
+        bool[] memory _permissions = new bool[](1);
+        _permissions[0] = true;
+
+        vm.prank(vm.addr(1));
+        account.setPermissions(callers, _permissions);
+
+        // ERC-1271 signature
+        bytes memory contractSignature =
+            abi.encodePacked(uint256(uint160(mockSigner)), uint256(65), uint8(0), signature1);
+        returnValue = account.isValidSignature(hash, contractSignature);
+        assertEq(returnValue, IERC1271.isValidSignature.selector);
+
+        // Recursive account signature
+        bytes memory recursiveSignature =
+            abi.encodePacked(uint256(uint160(address(account))), uint256(65), uint8(0), signature1);
+        returnValue = account.isValidSignature(hash, recursiveSignature);
+        assertEq(returnValue, IERC1271.isValidSignature.selector);
     }
 
-    function testMessageVerificationFailsInvalidSigner() public {
+    function testSignatureVerificationFailsInvalidSigner() public {
         uint256 tokenId = 1;
 
         address accountAddress =

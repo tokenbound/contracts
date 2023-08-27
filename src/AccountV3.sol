@@ -102,7 +102,29 @@ contract AccountV3 is
         override(ERC4337Account, Signatory)
         returns (bool)
     {
-        return SignatureChecker.isValidSignatureNow(owner(), hash, signature);
+        uint8 v = uint8(signature[64]);
+        address signer;
+
+        // Smart contract signature
+        if (v == 0) {
+            // Signer address encoded in r
+            signer = address(uint160(uint256(bytes32(signature[:32]))));
+
+            // Allow recursive signature verification
+            if (!_isValidSigner(signer, "") && signer != address(this)) return false;
+
+            // Signature offset encoded in s
+            bytes calldata _signature = signature[uint256(bytes32(signature[32:64])):];
+
+            return SignatureChecker.isValidERC1271SignatureNow(signer, hash, _signature);
+        }
+
+        ECDSA.RecoverError _error;
+        (signer, _error) = ECDSA.tryRecover(hash, signature);
+
+        if (_error != ECDSA.RecoverError.NoError) return false;
+
+        return _isValidSigner(signer, "");
     }
 
     function _isValidExecutor(address executor) internal view virtual override returns (bool) {
