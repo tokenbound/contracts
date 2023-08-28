@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
@@ -35,8 +35,9 @@ contract AccountERC721Test is Test {
     function testTransferERC721PreDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address computedAccountInstance =
-            registry.account(address(implementation), block.chainid, address(tokenCollection), tokenId, 0);
+        address computedAccountInstance = registry.account(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0
+        );
 
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
@@ -46,13 +47,15 @@ contract AccountERC721Test is Test {
         assertEq(dummyERC721.balanceOf(computedAccountInstance), 1);
         assertEq(dummyERC721.ownerOf(1), computedAccountInstance);
 
-        address accountAddress =
-            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
+        address accountAddress = registry.createAccount(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+        );
 
         AccountV3 account = AccountV3(payable(accountAddress));
 
-        bytes memory erc721TransferCall =
-            abi.encodeWithSignature("safeTransferFrom(address,address,uint256)", accountAddress, user1, 1);
+        bytes memory erc721TransferCall = abi.encodeWithSignature(
+            "safeTransferFrom(address,address,uint256)", accountAddress, user1, 1
+        );
         vm.prank(user1);
         account.execute(payable(address(dummyERC721)), 0, erc721TransferCall, 0);
 
@@ -64,8 +67,9 @@ contract AccountERC721Test is Test {
     function testTransferERC721PostDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address accountAddress =
-            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
+        address accountAddress = registry.createAccount(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+        );
 
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
@@ -133,8 +137,9 @@ contract AccountERC721Test is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress =
-            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
+        address accountAddress = registry.createAccount(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+        );
 
         AccountV3 account = AccountV3(payable(accountAddress));
 
@@ -142,7 +147,8 @@ contract AccountERC721Test is Test {
 
         // set overrides on account
         bytes4[] memory selectors = new bytes4[](1);
-        selectors[0] = bytes4(abi.encodeWithSignature("onERC721Received(address,address,uint256,bytes)"));
+        selectors[0] =
+            bytes4(abi.encodeWithSignature("onERC721Received(address,address,uint256,bytes)"));
         address[] memory implementations = new address[](1);
         implementations[0] = address(mockExecutor);
         vm.prank(user1);

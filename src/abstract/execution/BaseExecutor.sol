@@ -5,6 +5,10 @@ import "@openzeppelin/contracts/utils/Context.sol";
 
 import "./SandboxExecutor.sol";
 
+/**
+ * @title Base Executor
+ * @notice Base configuration for all executors
+ */
 abstract contract BaseExecutor is Context, SandboxExecutor {
     function _beforeExecute() internal virtual {}
 

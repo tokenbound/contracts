@@ -3,6 +3,9 @@ src = 'src'
 out = 'out'
 libs = ['lib']
 
+[fmt]
+line_length = 100
+
 [rpc_endpoints]
 goerli = "${GOERLI_RPC_URL}"
 sepolia = "${SEPOLIA_RPC_URL}"

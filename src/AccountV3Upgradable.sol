@@ -10,6 +10,7 @@ contract AccountV3Upgradable is AccountV3, UUPSUpgradeable {
     {}
 
     function _authorizeUpgrade(address) internal virtual override {
-        _isValidSigner(_msgSender(), "");
+        if (!_isValidSigner(_msgSender(), "")) revert NotAuthorized();
+        if (!_isValidSigner(_msgSender(), "")) revert NotAuthorized();
     }
 }

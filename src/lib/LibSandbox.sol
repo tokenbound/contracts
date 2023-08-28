@@ -13,7 +13,8 @@ library LibSandbox {
     }
 
     function sandbox(address owner) internal view returns (address) {
-        return Create2.computeAddress(keccak256("org.tokenbound.sandbox"), keccak256(bytecode(owner)));
+        return
+            Create2.computeAddress(keccak256("org.tokenbound.sandbox"), keccak256(bytecode(owner)));
     }
 
     function deploy(address owner) internal {

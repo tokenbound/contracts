@@ -14,7 +14,11 @@ abstract contract ERC6551Account is IERC6551Account, ERC165, Signatory {
 
     receive() external payable virtual {}
 
-    function isValidSigner(address signer, bytes calldata data) external view returns (bytes4 magicValue) {
+    function isValidSigner(address signer, bytes calldata data)
+        external
+        view
+        returns (bytes4 magicValue)
+    {
         if (_isValidSigner(signer, data)) {
             return IERC6551Account.isValidSigner.selector;
         }
@@ -22,7 +26,11 @@ abstract contract ERC6551Account is IERC6551Account, ERC165, Signatory {
         return bytes4(0);
     }
 
-    function token() public view returns (uint256 chainId, address tokenContract, uint256 tokenId) {
+    function token()
+        public
+        view
+        returns (uint256 chainId, address tokenContract, uint256 tokenId)
+    {
         return ERC6551AccountLib.token();
     }
 
@@ -31,7 +39,8 @@ abstract contract ERC6551Account is IERC6551Account, ERC165, Signatory {
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IERC6551Account).interfaceId || super.supportsInterface(interfaceId);
+        return
+            interfaceId == type(IERC6551Account).interfaceId || super.supportsInterface(interfaceId);
     }
 
     function _isValidSigner(address signer, bytes memory) internal view virtual returns (bool);

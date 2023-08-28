@@ -30,7 +30,10 @@ library LibExecutor {
         revert InvalidOperation();
     }
 
-    function _call(address to, uint256 value, bytes memory data) internal returns (bytes memory result) {
+    function _call(address to, uint256 value, bytes memory data)
+        internal
+        returns (bytes memory result)
+    {
         bool success;
         (success, result) = to.call{value: value}(data);
 
@@ -51,7 +54,10 @@ library LibExecutor {
         if (created == address(0)) revert ContractCreationFailed();
     }
 
-    function _create2(uint256 value, bytes32 salt, bytes calldata data) internal returns (address created) {
+    function _create2(uint256 value, bytes32 salt, bytes calldata data)
+        internal
+        returns (address created)
+    {
         bytes memory bytecode = data;
 
         assembly {

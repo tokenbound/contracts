@@ -5,6 +5,10 @@ import "../../utils/Errors.sol";
 
 import "./BaseExecutor.sol";
 
+/**
+ * @title Batch Executor
+ * @notice Allows multiple operations to be executed from this account in a single transaction
+ */
 abstract contract BatchExecutor is BaseExecutor {
     struct Operation {
         address to;
@@ -13,7 +17,15 @@ abstract contract BatchExecutor is BaseExecutor {
         uint256 operation;
     }
 
-    function executeBatch(Operation[] calldata operations) external payable returns (bytes[] memory) {
+    /**
+     * @notice Executes a batch of operations if the caller is authorized
+     * @param operations Operations to execute
+     */
+    function executeBatch(Operation[] calldata operations)
+        external
+        payable
+        returns (bytes[] memory)
+    {
         if (!_isValidExecutor(_msgSender())) revert NotAuthorized();
 
         _beforeExecute();
@@ -22,8 +34,9 @@ abstract contract BatchExecutor is BaseExecutor {
         bytes[] memory results = new bytes[](length);
 
         for (uint256 i = 0; i < length; i++) {
-            results[i] =
-                LibExecutor._execute(operations[i].to, operations[i].value, operations[i].data, operations[i].operation);
+            results[i] = LibExecutor._execute(
+                operations[i].to, operations[i].value, operations[i].data, operations[i].operation
+            );
         }
 
         return results;

@@ -13,6 +13,11 @@ import "../../lib/LibSandbox.sol";
 import "./SandboxExecutor.sol";
 import "./BaseExecutor.sol";
 
+/**
+ * @title Nested Account Executor
+ * @notice Allows the root owner of a nested token bound account to execute transactions directly
+ * against the nested account
+ */
 abstract contract NestedAccountExecutor is BaseExecutor {
     address private immutable __self = address(this);
     address public immutable erc6551Registry;
@@ -41,11 +46,19 @@ abstract contract NestedAccountExecutor is BaseExecutor {
         for (uint256 i = 0; i < length; i++) {
             accountInfo = proof[i];
             address next = ERC6551AccountLib.computeAddress(
-                erc6551Registry, __self, block.chainid, accountInfo.tokenContract, accountInfo.tokenId, accountInfo.salt
+                erc6551Registry,
+                __self,
+                block.chainid,
+                accountInfo.tokenContract,
+                accountInfo.tokenId,
+                accountInfo.salt
             );
 
             if (next.code.length == 0) revert InvalidAccountProof();
-            if (IERC6551Account(payable(next)).isValidSigner(current, "") != IERC6551Account.isValidSigner.selector) {
+            if (
+                IERC6551Account(payable(next)).isValidSigner(current, "")
+                    != IERC6551Account.isValidSigner.selector
+            ) {
                 revert InvalidAccountProof();
             }
 

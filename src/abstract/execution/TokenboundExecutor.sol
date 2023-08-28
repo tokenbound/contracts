@@ -13,13 +13,15 @@ import "../../lib/LibSandbox.sol";
 import "./ERC6551Executor.sol";
 import "./BatchExecutor.sol";
 import "./NestedAccountExecutor.sol";
-import "./CrossChainExecutor.sol";
 
+/**
+ * @title Tokenbound Executor
+ * @notice Enables basic ERC-6551 execution as well as batch, nested, and mult-account execution
+ */
 abstract contract TokenboundExecutor is
     ERC6551Executor,
     BatchExecutor,
     NestedAccountExecutor,
-    CrossChainExecutor,
     ERC2771Context
 {
     constructor(address multicallForwarder, address _erc6551Registry)
@@ -27,11 +29,23 @@ abstract contract TokenboundExecutor is
         NestedAccountExecutor(_erc6551Registry)
     {}
 
-    function _msgSender() internal view virtual override(Context, ERC2771Context) returns (address sender) {
+    function _msgSender()
+        internal
+        view
+        virtual
+        override(Context, ERC2771Context)
+        returns (address sender)
+    {
         return super._msgSender();
     }
 
-    function _msgData() internal view virtual override(Context, ERC2771Context) returns (bytes calldata) {
+    function _msgData()
+        internal
+        view
+        virtual
+        override(Context, ERC2771Context)
+        returns (bytes calldata)
+    {
         return super._msgData();
     }
 }

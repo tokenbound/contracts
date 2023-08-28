@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
@@ -33,8 +33,9 @@ contract AccountETHTest is Test {
         vm.deal(user1, 0.2 ether);
 
         // get address that account will be deployed to (before token is minted)
-        address accountAddress =
-            registry.account(address(implementation), block.chainid, address(tokenCollection), tokenId, 0);
+        address accountAddress = registry.account(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0
+        );
 
         // mint token for account to user1
         tokenCollection.mint(user1, tokenId);
@@ -49,8 +50,9 @@ contract AccountETHTest is Test {
         assertEq(accountAddress.balance, 0.2 ether);
 
         // deploy account contract (from a different wallet)
-        address createdAccountInstance =
-            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
+        address createdAccountInstance = registry.createAccount(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+        );
 
         assertEq(accountAddress, createdAccountInstance);
 
@@ -69,8 +71,9 @@ contract AccountETHTest is Test {
         address user1 = vm.addr(1);
         vm.deal(user1, 0.2 ether);
 
-        address accountAddress =
-            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
+        address accountAddress = registry.createAccount(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+        );
 
         tokenCollection.mint(user1, tokenId);
 

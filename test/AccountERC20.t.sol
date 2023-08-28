@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
@@ -35,8 +35,9 @@ contract AccountERC20Test is Test {
     function testTransferERC20PreDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address computedAccountInstance =
-            registry.account(address(implementation), block.chainid, address(tokenCollection), tokenId, 0);
+        address computedAccountInstance = registry.account(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0
+        );
 
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
@@ -45,12 +46,14 @@ contract AccountERC20Test is Test {
 
         assertEq(dummyERC20.balanceOf(computedAccountInstance), 1 ether);
 
-        address accountAddress =
-            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
+        address accountAddress = registry.createAccount(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+        );
 
         AccountV3 account = AccountV3(payable(accountAddress));
 
-        bytes memory erc20TransferCall = abi.encodeWithSignature("transfer(address,uint256)", user1, 1 ether);
+        bytes memory erc20TransferCall =
+            abi.encodeWithSignature("transfer(address,uint256)", user1, 1 ether);
         vm.prank(user1);
         account.execute(payable(address(dummyERC20)), 0, erc20TransferCall, 0);
 
@@ -61,8 +64,9 @@ contract AccountERC20Test is Test {
     function testTransferERC20PostDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address accountAddress =
-            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
+        address accountAddress = registry.createAccount(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+        );
 
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
@@ -73,7 +77,8 @@ contract AccountERC20Test is Test {
 
         AccountV3 account = AccountV3(payable(accountAddress));
 
-        bytes memory erc20TransferCall = abi.encodeWithSignature("transfer(address,uint256)", user1, 1 ether);
+        bytes memory erc20TransferCall =
+            abi.encodeWithSignature("transfer(address,uint256)", user1, 1 ether);
         vm.prank(user1);
         account.execute(payable(address(dummyERC20)), 0, erc20TransferCall, 0);
 

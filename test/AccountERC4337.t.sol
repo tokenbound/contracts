@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
@@ -35,8 +35,9 @@ contract AccountERC4337Test is Test {
     }
 
     function testReturnsEntryPoint() public {
-        address accountAddress =
-            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), 1, 0, "");
+        address accountAddress = registry.createAccount(
+            address(implementation), block.chainid, address(tokenCollection), 1, 0, ""
+        );
 
         assertEq(address(AccountV3(payable(accountAddress)).entryPoint()), address(entryPoint));
     }
@@ -49,8 +50,9 @@ contract AccountERC4337Test is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress =
-            registry.account(address(implementation), block.chainid, address(tokenCollection), tokenId, 0);
+        address accountAddress = registry.account(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0
+        );
 
         bytes memory initCode = abi.encodePacked(
             address(registry),
@@ -65,8 +67,9 @@ contract AccountERC4337Test is Test {
             )
         );
 
-        bytes memory callData =
-            abi.encodeWithSignature("execute(address,uint256,bytes,uint256)", user2, 0.1 ether, "", 0);
+        bytes memory callData = abi.encodeWithSignature(
+            "execute(address,uint256,bytes,uint256)", user2, 0.1 ether, "", 0
+        );
 
         UserOperation memory op = UserOperation({
             sender: accountAddress,
@@ -109,11 +112,13 @@ contract AccountERC4337Test is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress =
-            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
+        address accountAddress = registry.createAccount(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+        );
 
-        bytes memory callData =
-            abi.encodeWithSignature("execute(address,uint256,bytes,uint256)", user2, 0.1 ether, "", 0);
+        bytes memory callData = abi.encodeWithSignature(
+            "execute(address,uint256,bytes,uint256)", user2, 0.1 ether, "", 0
+        );
 
         UserOperation memory op = UserOperation({
             sender: accountAddress,
@@ -156,11 +161,13 @@ contract AccountERC4337Test is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress =
-            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
+        address accountAddress = registry.createAccount(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+        );
 
-        bytes memory callData =
-            abi.encodeWithSignature("execute(address,uint256,bytes,uint256)", user2, 0.1 ether, "", 0);
+        bytes memory callData = abi.encodeWithSignature(
+            "execute(address,uint256,bytes,uint256)", user2, 0.1 ether, "", 0
+        );
 
         UserOperation memory op = UserOperation({
             sender: accountAddress,

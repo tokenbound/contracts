@@ -15,6 +15,10 @@ import "../../lib/LibSandbox.sol";
 import "./SandboxExecutor.sol";
 import "./BaseExecutor.sol";
 
+/**
+ * @title ERC-6551 Executor
+ * @notice Basic executor which implements the IERC6551Executable execution interface
+ */
 abstract contract ERC6551Executor is IERC6551Executable, ERC165, BaseExecutor {
     function execute(address to, uint256 value, bytes calldata data, uint256 operation)
         external
@@ -30,6 +34,7 @@ abstract contract ERC6551Executor is IERC6551Executable, ERC165, BaseExecutor {
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IERC6551Executable).interfaceId || super.supportsInterface(interfaceId);
+        return interfaceId == type(IERC6551Executable).interfaceId
+            || super.supportsInterface(interfaceId);
     }
 }

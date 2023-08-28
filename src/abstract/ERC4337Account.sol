@@ -43,5 +43,9 @@ abstract contract ERC4337Account is BaseERC4337Account {
         return userOpHash.toEthSignedMessageHash();
     }
 
-    function _isValidSignature(bytes32 hash, bytes calldata signature) internal view virtual returns (bool);
+    function _isValidSignature(bytes32 hash, bytes calldata signature)
+        internal
+        view
+        virtual
+        returns (bool);
 }

@@ -8,12 +8,19 @@ import "../../utils/Errors.sol";
 import "../../lib/LibSandbox.sol";
 import "../../lib/LibExecutor.sol";
 
+/**
+ * @title Sandbox Executor
+ * @notice Allows the sandbox contract for an account to execute low-level operations
+ */
 abstract contract SandboxExecutor is ISandboxExecutor {
     function _requireFromSandbox() internal view {
         if (msg.sender != LibSandbox.sandbox(address(this))) revert NotAuthorized();
     }
 
-    function extcall(address to, uint256 value, bytes calldata data) external returns (bytes memory result) {
+    function extcall(address to, uint256 value, bytes calldata data)
+        external
+        returns (bytes memory result)
+    {
         _requireFromSandbox();
         return LibExecutor._call(to, value, data);
     }
@@ -24,7 +31,10 @@ abstract contract SandboxExecutor is ISandboxExecutor {
         return LibExecutor._create(value, bytecode);
     }
 
-    function extcreate2(uint256 value, bytes32 salt, bytes calldata bytecode) external returns (address) {
+    function extcreate2(uint256 value, bytes32 salt, bytes calldata bytecode)
+        external
+        returns (address)
+    {
         _requireFromSandbox();
         return LibExecutor._create2(value, salt, bytecode);
     }

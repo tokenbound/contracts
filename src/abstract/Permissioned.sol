@@ -10,7 +10,10 @@ abstract contract Permissioned {
     event PermissionUpdated(address owner, address caller, bool hasPermission);
 
     /// @dev grants a given caller execution permissions
-    function setPermissions(address[] calldata callers, bool[] calldata _permissions) external virtual {
+    function setPermissions(address[] calldata callers, bool[] calldata _permissions)
+        external
+        virtual
+    {
         address _owner = _getStorageOwner();
 
         if (_owner == address(0)) revert NotAuthorized();

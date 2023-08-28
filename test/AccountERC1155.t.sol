@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
@@ -36,8 +36,9 @@ contract AccountERC1155Test is Test {
     function testTransferERC1155PreDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address computedAccountInstance =
-            registry.account(address(implementation), block.chainid, address(tokenCollection), tokenId, 0);
+        address computedAccountInstance = registry.account(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0
+        );
 
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
@@ -46,8 +47,9 @@ contract AccountERC1155Test is Test {
 
         assertEq(dummyERC1155.balanceOf(computedAccountInstance, 1), 10);
 
-        address accountAddress =
-            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
+        address accountAddress = registry.createAccount(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+        );
 
         AccountV3 account = AccountV3(payable(accountAddress));
 
@@ -64,8 +66,9 @@ contract AccountERC1155Test is Test {
     function testTransferERC1155PostDeploy(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address accountAddress =
-            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
+        address accountAddress = registry.createAccount(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+        );
 
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
@@ -89,8 +92,9 @@ contract AccountERC1155Test is Test {
     function testBatchTransferERC1155(uint256 tokenId) public {
         address user1 = vm.addr(1);
 
-        address accountAddress =
-            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
+        address accountAddress = registry.createAccount(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+        );
 
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
@@ -120,8 +124,9 @@ contract AccountERC1155Test is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress =
-            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
+        address accountAddress = registry.createAccount(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+        );
 
         AccountV3 account = AccountV3(payable(accountAddress));
 
@@ -129,7 +134,9 @@ contract AccountERC1155Test is Test {
 
         // set overrides on account
         bytes4[] memory selectors = new bytes4[](1);
-        selectors[0] = bytes4(abi.encodeWithSignature("onERC1155Received(address,address,uint256,uint256,bytes)"));
+        selectors[0] = bytes4(
+            abi.encodeWithSignature("onERC1155Received(address,address,uint256,uint256,bytes)")
+        );
         address[] memory implementations = new address[](1);
         implementations[0] = address(mockExecutor);
         vm.prank(user1);
@@ -145,8 +152,9 @@ contract AccountERC1155Test is Test {
         tokenCollection.mint(user1, tokenId);
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
-        address accountAddress =
-            registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
+        address accountAddress = registry.createAccount(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+        );
 
         AccountV3 account = AccountV3(payable(accountAddress));
 
@@ -154,8 +162,11 @@ contract AccountERC1155Test is Test {
 
         // set overrides on account
         bytes4[] memory selectors = new bytes4[](1);
-        selectors[0] =
-            bytes4(abi.encodeWithSignature("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"));
+        selectors[0] = bytes4(
+            abi.encodeWithSignature(
+                "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"
+            )
+        );
         address[] memory implementations = new address[](1);
         implementations[0] = address(mockExecutor);
         vm.prank(user1);

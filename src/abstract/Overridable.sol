@@ -13,7 +13,10 @@ abstract contract Overridable {
     event OverrideUpdated(address owner, bytes4 selector, address implementation);
 
     /// @dev sets the implementation address for a given function call
-    function setOverrides(bytes4[] calldata selectors, address[] calldata implementations) external virtual {
+    function setOverrides(bytes4[] calldata selectors, address[] calldata implementations)
+        external
+        virtual
+    {
         address _owner = _getStorageOwner();
 
         if (_owner == address(0)) revert NotAuthorized();
@@ -42,7 +45,8 @@ abstract contract Overridable {
 
         if (implementation != address(0)) {
             address sandbox = LibSandbox.sandbox(address(this));
-            (bool success, bytes memory result) = sandbox.call(abi.encodePacked(implementation, msg.data));
+            (bool success, bytes memory result) =
+                sandbox.call(abi.encodePacked(implementation, msg.data));
             assembly {
                 if iszero(success) { revert(add(result, 32), mload(result)) }
                 return(add(result, 32), mload(result))
