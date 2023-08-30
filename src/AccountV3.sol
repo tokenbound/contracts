@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import "forge-std/console.sol";
-
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
+
+import "erc6551/lib/ERC6551AccountLib.sol";
 
 import "./abstract/Lockable.sol";
 import "./abstract/Overridable.sol";
@@ -15,6 +15,8 @@ import "./abstract/ERC4337Account.sol";
 import "./abstract/execution/TokenboundExecutor.sol";
 
 import "./lib/OPAddressAliasHelper.sol";
+
+import "./interfaces/IAccountGuardian.sol";
 
 /**
  * @title Tokenbound ERC-6551 Account Implementation
@@ -29,15 +31,22 @@ contract AccountV3 is
     ERC4337Account,
     TokenboundExecutor
 {
+    IAccountGuardian immutable guardian;
+
     /**
      * @param entryPoint_ The ERC-4337 EntryPoint address
      * @param multicallForwarder The MulticallForwarder address
      * @param erc6551Registry The ERC-6551 Registry address
+     * @param _guardian The AccountGuardian address
      */
-    constructor(address entryPoint_, address multicallForwarder, address erc6551Registry)
-        ERC4337Account(entryPoint_)
-        TokenboundExecutor(multicallForwarder, erc6551Registry)
-    {}
+    constructor(
+        address entryPoint_,
+        address multicallForwarder,
+        address erc6551Registry,
+        address _guardian
+    ) ERC4337Account(entryPoint_) TokenboundExecutor(multicallForwarder, erc6551Registry) {
+        guardian = IAccountGuardian(_guardian);
+    }
 
     /**
      * @notice Called whenever this account received Ether
@@ -65,16 +74,8 @@ contract AccountV3 is
      * @return address The address which owns the token this account is bound to
      */
     function owner() public view returns (address) {
-        (uint256 chainId, address tokenContract, uint256 tokenId) = token();
-
-        if (chainId != block.chainid) return address(0);
-        if (tokenContract.code.length == 0) return address(0);
-
-        try IERC721(tokenContract).ownerOf(tokenId) returns (address _owner) {
-            return _owner;
-        } catch {
-            return address(0);
-        }
+        (uint256 chainId, address tokenContract, uint256 tokenId) = ERC6551AccountLib.token();
+        return _tokenOwner(chainId, tokenContract, tokenId);
     }
 
     /**
@@ -102,15 +103,23 @@ contract AccountV3 is
     }
 
     /**
-     * @dev called whenever an ERC-721 token is received. Can be overriden via Overridable.
+     * @dev called whenever an ERC-721 token is received. Can be overriden via Overridable. Reverts
+     * if token being received is the token the account is bound to.
      */
-    function onERC721Received(address, address, uint256, bytes memory)
+    function onERC721Received(address, address, uint256 tokenId, bytes memory)
         public
         virtual
         override
         returns (bytes4)
     {
+        (uint256 chainId, address tokenContract, uint256 _tokenId) = ERC6551AccountLib.token();
+
+        if (msg.sender == tokenContract && tokenId == _tokenId && chainId == block.chainid) {
+            revert OwnershipCycle();
+        }
+
         _handleOverrideStatic();
+
         return this.onERC721Received.selector;
     }
 
@@ -154,9 +163,25 @@ contract AccountV3 is
         override
         returns (bool)
     {
-        return signer == owner() || hasPermission(signer);
+        (uint256 chainId, address tokenContract, uint256 tokenId) = ERC6551AccountLib.token();
+
+        // Single level accuont owner is valid signer
+        address _owner = _tokenOwner(chainId, tokenContract, tokenId);
+        if (signer == _owner) return true;
+
+        // Root owner of accuont tree is valid signer
+        address _rootOwner = _rootTokenOwner(_owner, chainId, tokenContract, tokenId);
+        if (signer == _rootOwner) return true;
+
+        // Accounts granted permission by root owner are valid signers
+        return hasPermission(signer, _rootOwner);
     }
 
+    /**
+     * Determines if a given hash and signature are valid for this account
+     * @param hash Hash of signed data
+     * @param signature ECDSA signature or encoded contract signature (v=0)
+     */
     function _isValidSignature(bytes32 hash, bytes calldata signature)
         internal
         view
@@ -172,7 +197,9 @@ contract AccountV3 is
             signer = address(uint160(uint256(bytes32(signature[:32]))));
 
             // Allow recursive signature verification
-            if (!_isValidSigner(signer, "") && signer != address(this)) return false;
+            if (!_isValidSigner(signer, "") && signer != address(this)) {
+                return false;
+            }
 
             // Signature offset encoded in s
             bytes calldata _signature = signature[uint256(bytes32(signature[32:64])):];
@@ -199,11 +226,31 @@ contract AccountV3 is
         // Allow execution from ERC-4337 EntryPoint
         if (executor == address(entryPoint())) return true;
 
-        // Allow execution from L1 account on OPStack chains
-        if (OPAddressAliasHelper.undoL1ToL2Alias(_msgSender()) == address(this)) return true;
+        (uint256 chainId, address tokenContract, uint256 tokenId) = ERC6551AccountLib.token();
 
-        // Allow execution from valid signers
-        return _isValidSigner(executor, "");
+        // Allow cross chain execution
+        if (chainId != block.chainid) {
+            // Allow execution from L1 account on OPStack chains
+            if (OPAddressAliasHelper.undoL1ToL2Alias(_msgSender()) == address(this)) {
+                return true;
+            }
+
+            // Allow execution from trusted cross chain bridges
+            if (guardian.isTrustedExecutor(executor)) return true;
+        }
+
+        // Allow execution from owner
+        address _owner = _tokenOwner(chainId, tokenContract, tokenId);
+        if (executor == _owner) return true;
+
+        // Allow execution from root owner of account tree
+        address _rootOwner = _rootTokenOwner(_owner, chainId, tokenContract, tokenId);
+        if (executor == _rootOwner) return true;
+
+        // Allow execution from permissioned account
+        if (hasPermission(executor, _rootOwner)) return true;
+
+        return false;
     }
 
     /**
@@ -222,40 +269,86 @@ contract AccountV3 is
         _updateState();
     }
 
-    function _getStorageOwner()
-        internal
-        view
-        virtual
-        override(Overridable, Permissioned)
-        returns (address)
-    {
-        return owner();
-    }
-
-    function _canLockAccount() internal view virtual override returns (bool) {
-        return _isValidSigner(_msgSender(), "");
-    }
-
+    /**
+     * @dev Called before locking the account. Reverts if account is locked. Updates account state.
+     */
     function _beforeLock() internal override {
         if (isLocked()) revert AccountLocked();
         _updateState();
     }
 
-    function _canSetOverrides() internal view virtual override returns (bool) {
-        return _isValidSigner(_msgSender(), "");
-    }
-
+    /**
+     * @dev Called before setting overrides on the account. Reverts if account is locked. Updates
+     * account state.
+     */
     function _beforeSetOverrides() internal override {
         if (isLocked()) revert AccountLocked();
         _updateState();
     }
 
-    function _canSetPermissions() internal view virtual override returns (bool) {
-        return _isValidSigner(_msgSender(), "");
-    }
-
+    /**
+     * @dev Called before setting permissions on the account. Reverts if account is locked. Updates
+     * account state.
+     */
     function _beforeSetPermissions() internal override {
         if (isLocked()) revert AccountLocked();
         _updateState();
+    }
+
+    /**
+     * @dev Returns the root owner of an account. If account is not owned by a TBA, returns the
+     * owner of the NFT bound to this account. If account is owned by a TBA, iterates up token
+     * ownership tree and returns root owner.
+     */
+    function _rootTokenOwner(uint256 chainId, address tokenContract, uint256 tokenId)
+        internal
+        view
+        virtual
+        override(Overridable, Permissioned, Lockable)
+        returns (address)
+    {
+        address _owner = _tokenOwner(chainId, tokenContract, tokenId);
+
+        return _rootTokenOwner(_owner, chainId, tokenContract, tokenId);
+    }
+
+    /**
+     * @dev Returns the root owner of an account given a known account owner address (saves an
+     * additional external call).
+     */
+    function _rootTokenOwner(
+        address owner_,
+        uint256 chainId,
+        address tokenContract,
+        uint256 tokenId
+    ) internal view virtual returns (address) {
+        address _owner = owner_;
+
+        while (ERC6551AccountLib.isERC6551Account(_owner, __self, erc6551Registry)) {
+            (chainId, tokenContract, tokenId) = IERC6551Account(payable(_owner)).token();
+            _owner = _tokenOwner(chainId, tokenContract, tokenId);
+        }
+
+        return _owner;
+    }
+
+    /**
+     * @dev Returns the owner of the token which this account is bound to. Returns the zero address
+     * if token does not exist on the current chain or if the token contract does not exist
+     */
+    function _tokenOwner(uint256 chainId, address tokenContract, uint256 tokenId)
+        internal
+        view
+        virtual
+        returns (address)
+    {
+        if (chainId != block.chainid) return address(0);
+        if (tokenContract.code.length == 0) return address(0);
+
+        try IERC721(tokenContract).ownerOf(tokenId) returns (address _owner) {
+            return _owner;
+        } catch {
+            return address(0);
+        }
     }
 }

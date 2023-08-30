@@ -4,20 +4,20 @@ pragma solidity ^0.8.13;
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 import "@openzeppelin/contracts/proxy/Proxy.sol";
 
-error InvalidImplementation();
+import "./interfaces/IAccountGuardian.sol";
+import "./utils/Errors.sol";
 
 contract AccountProxy is Proxy, ERC1967Upgrade {
-    address immutable initialImplementation;
+    IAccountGuardian immutable guardian;
 
-    constructor(address _initialImplementation) {
-        if (_initialImplementation == address(0)) {
-            revert InvalidImplementation();
-        }
-        initialImplementation = _initialImplementation;
+    constructor(address _guardian) {
+        if (_guardian == address(0)) revert InvalidImplementation();
+        guardian = IAccountGuardian(_guardian);
     }
 
-    function initialize() external {
-        ERC1967Upgrade._upgradeTo(initialImplementation);
+    function initialize(address implementation) external {
+        if (!guardian.isTrustedImplementation(implementation)) revert InvalidImplementation();
+        ERC1967Upgrade._upgradeTo(implementation);
     }
 
     function _implementation() internal view override returns (address) {

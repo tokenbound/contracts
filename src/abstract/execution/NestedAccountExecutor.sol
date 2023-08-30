@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 
 import "erc6551/interfaces/IERC6551Executable.sol";
@@ -15,11 +16,11 @@ import "./BaseExecutor.sol";
 
 /**
  * @title Nested Account Executor
- * @notice Allows the root owner of a nested token bound account to execute transactions directly
- * against the nested account
+ * @dev Allows the root owner of a nested token bound account to execute transactions directly
+ * against the nested account, even if intermediate accounts have not been created.
  */
 abstract contract NestedAccountExecutor is BaseExecutor {
-    address private immutable __self = address(this);
+    address immutable __self = address(this);
     address public immutable erc6551Registry;
 
     struct ERC6551AccountInfo {
@@ -29,9 +30,21 @@ abstract contract NestedAccountExecutor is BaseExecutor {
     }
 
     constructor(address _erc6551Registry) {
+        if (_erc6551Registry == address(0)) revert InvalidERC6551Registry();
         erc6551Registry = _erc6551Registry;
     }
 
+    /**
+     * Executes a low-level operation from this account if the caller is a valid signer on the
+     * parent TBA specified in the proof
+     *
+     * @param to Account to operate on
+     * @param value Value to send with operation
+     * @param data Encoded calldata of operation
+     * @param operation Operation type (0=CALL, 1=DELEGATECALL, 2=CREATE, 3=CREATE2)
+     * @param proof An array of ERC-6551 account information specifying the ownership path from this
+     * account to its parent
+     */
     function executeNested(
         address to,
         uint256 value,
@@ -45,24 +58,20 @@ abstract contract NestedAccountExecutor is BaseExecutor {
         ERC6551AccountInfo calldata accountInfo;
         for (uint256 i = 0; i < length; i++) {
             accountInfo = proof[i];
+            address tokenContract = accountInfo.tokenContract;
+            uint256 tokenId = accountInfo.tokenId;
+
             address next = ERC6551AccountLib.computeAddress(
-                erc6551Registry,
-                __self,
-                block.chainid,
-                accountInfo.tokenContract,
-                accountInfo.tokenId,
-                accountInfo.salt
+                erc6551Registry, __self, block.chainid, tokenContract, tokenId, accountInfo.salt
             );
 
-            if (next.code.length == 0) revert InvalidAccountProof();
-            if (
-                IERC6551Account(payable(next)).isValidSigner(current, "")
-                    != IERC6551Account.isValidSigner.selector
-            ) {
+            if (tokenContract.code.length == 0) revert InvalidAccountProof();
+            try IERC721(tokenContract).ownerOf(tokenId) returns (address _owner) {
+                if (_owner != current) revert InvalidAccountProof();
+                current = next;
+            } catch {
                 revert InvalidAccountProof();
             }
-
-            current = next;
         }
 
         if (!_isValidExecutor(current)) revert NotAuthorized();

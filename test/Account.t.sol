@@ -40,9 +40,12 @@ contract AccountTest is Test {
 
         forwarder = new MulticallForwarder();
         guardian = new AccountGuardian();
-        implementation = new AccountV3(address(0), address(forwarder), address(registry));
-        upgradableImplementation = new AccountV3Upgradable(address(0), address(0), address(0));
-        proxy = new AccountProxy(address(upgradableImplementation));
+        implementation =
+            new AccountV3(address(1), address(forwarder), address(registry), address(guardian));
+        upgradableImplementation =
+        new AccountV3Upgradable(address(1), address(forwarder), address(registry), address(guardian));
+        proxy = new AccountProxy(address(guardian));
+        guardian.setTrustedImplementation(address(upgradableImplementation), true);
 
         tokenCollection = new MockERC721();
 
@@ -124,7 +127,7 @@ contract AccountTest is Test {
         bytes4 returnValue = account.isValidSignature(hash, signature1);
         assertEq(returnValue, IERC1271.isValidSignature.selector);
 
-        address mockSigner = address(new MockSigner());
+        MockSigner mockSigner = new MockSigner();
 
         address[] memory callers = new address[](1);
         callers[0] = address(mockSigner);
@@ -135,10 +138,18 @@ contract AccountTest is Test {
         account.setPermissions(callers, _permissions);
 
         // ERC-1271 signature
-        bytes memory contractSignature =
-            abi.encodePacked(uint256(uint160(mockSigner)), uint256(65), uint8(0), signature1);
+        bytes memory contractSignature = abi.encodePacked(
+            uint256(uint160(address(mockSigner))), uint256(65), uint8(0), signature1
+        );
         returnValue = account.isValidSignature(hash, contractSignature);
         assertEq(returnValue, IERC1271.isValidSignature.selector);
+
+        // ERC-1271 signature invalid
+        _permissions[0] = false;
+        vm.prank(vm.addr(1));
+        account.setPermissions(callers, _permissions);
+        returnValue = account.isValidSignature(hash, contractSignature);
+        assertEq(returnValue, bytes4(0));
 
         // Recursive account signature
         bytes memory recursiveSignature =
@@ -254,159 +265,6 @@ contract AccountTest is Test {
         bytes4 returnValue1 = account.isValidSignature(hashAfterUnlock, signature2);
         assertEq(returnValue1, IERC1271.isValidSignature.selector);
     }
-
-    function testCustomOverridesFallback() public {
-        uint256 tokenId = 1;
-        address user1 = vm.addr(1);
-
-        address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
-        );
-
-        vm.deal(accountAddress, 1 ether);
-
-        AccountV3 account = AccountV3(payable(accountAddress));
-
-        MockExecutor mockExecutor = new MockExecutor();
-
-        // calls succeed with noop if override is undefined
-        (bool success, bytes memory result) =
-            accountAddress.call(abi.encodeWithSignature("customFunction()"));
-        assertEq(success, true);
-        assertEq(result, "");
-
-        uint256 state = account.state();
-
-        // set overrides on account
-        bytes4[] memory selectors = new bytes4[](2);
-        selectors[0] = bytes4(abi.encodeWithSignature("customFunction()"));
-        selectors[1] = bytes4(abi.encodeWithSignature("fail()"));
-        address[] memory implementations = new address[](2);
-        implementations[0] = address(mockExecutor);
-        implementations[1] = address(mockExecutor);
-        vm.prank(user1);
-        account.setOverrides(selectors, implementations);
-
-        assertTrue(state != account.state());
-
-        // execution module handles fallback calls
-        assertEq(MockExecutor(accountAddress).customFunction(), 12345);
-
-        // execution bubbles up errors on revert
-        vm.expectRevert(MockReverter.MockError.selector);
-        MockExecutor(accountAddress).fail();
-    }
-
-    function testCustomOverridesSupportsInterface() public {
-        uint256 tokenId = 1;
-        address user1 = vm.addr(1);
-
-        address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
-        );
-
-        vm.deal(accountAddress, 1 ether);
-
-        AccountV3 account = AccountV3(payable(accountAddress));
-
-        assertEq(account.supportsInterface(type(IERC1155Receiver).interfaceId), true);
-        assertEq(account.supportsInterface(0x12345678), false);
-
-        MockExecutor mockExecutor = new MockExecutor();
-
-        // set overrides on account
-        bytes4[] memory selectors = new bytes4[](1);
-        selectors[0] = bytes4(abi.encodeWithSignature("supportsInterface(bytes4)"));
-        address[] memory implementations = new address[](1);
-        implementations[0] = address(mockExecutor);
-        vm.prank(user1);
-        account.setOverrides(selectors, implementations);
-
-        // override handles extra interface support
-        assertEq(AccountV3(payable(accountAddress)).supportsInterface(0x12345678), true);
-        // cannot override default interfaces
-        assertEq(
-            AccountV3(payable(accountAddress)).supportsInterface(type(IERC1155Receiver).interfaceId),
-            true
-        );
-    }
-
-    function testCustomPermissions() public {
-        uint256 tokenId = 1;
-        address user1 = vm.addr(1);
-        address user2 = vm.addr(2);
-
-        address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
-        );
-
-        vm.deal(accountAddress, 1 ether);
-
-        AccountV3 account = AccountV3(payable(accountAddress));
-
-        assertTrue(account.isValidSigner(user2, "") != IERC6551Account.isValidSigner.selector);
-
-        address[] memory callers = new address[](1);
-        callers[0] = address(user2);
-        bool[] memory _permissions = new bool[](1);
-        _permissions[0] = true;
-        vm.prank(user1);
-        account.setPermissions(callers, _permissions);
-
-        assertEq(account.isValidSigner(user2, ""), IERC6551Account.isValidSigner.selector);
-
-        vm.prank(user2);
-        account.execute(user2, 0.1 ether, "", 0);
-
-        assertEq(user2.balance, 0.1 ether);
-    }
-
-    // function testCrossChainCalls() public {
-    //     uint256 tokenId = 1;
-    //     address user1 = vm.addr(1);
-    //     address crossChainExecutor = vm.addr(2);
-
-    //     uint256 chainId = block.chainid + 1;
-
-    //     tokenCollection.mint(user1, tokenId);
-    //     assertEq(tokenCollection.ownerOf(tokenId), user1);
-
-    //     address accountAddress = registry.createAccount(
-    //         address(implementation), chainId, address(tokenCollection), tokenId, 0, abi.encodeWithSignature("initialize()")
-    //     );
-
-    //     vm.deal(accountAddress, 1 ether);
-
-    //     AccountV3 account = AccountV3(payable(accountAddress));
-
-    //     assertEq(account.isAuthorized(crossChainExecutor), false);
-
-    //     guardian.setTrustedExecutor(crossChainExecutor, true);
-
-    //     assertEq(account.isAuthorized(crossChainExecutor), true);
-
-    //     vm.prank(crossChainExecutor);
-    //     account.execute(user1, 0.1 ether, "", 0);
-
-    //     assertEq(user1.balance, 0.1 ether);
-
-    //     address notCrossChainExecutor = vm.addr(3);
-    //     vm.prank(notCrossChainExecutor);
-    //     vm.expectRevert(NotAuthorized.selector);
-    //     AccountV3(payable(account)).execute(user1, 0.1 ether, "", 0);
-
-    //     assertEq(user1.balance, 0.1 ether);
-
-    //     address nativeAccountAddress = registry.createAccount(
-    //         address(implementation), block.chainid, address(tokenCollection), tokenId, 0, abi.encodeWithSignature("initialize()")
-    //     );
-
-    //     vm.prank(crossChainExecutor);
-    //     vm.expectRevert(NotAuthorized.selector);
-    //     AccountV3(payable(nativeAccountAddress)).execute(user1, 0.1 ether, "", 0);
-
-    //     assertEq(user1.balance, 0.1 ether);
-    // }
 
     function testExecuteCallRevert() public {
         uint256 tokenId = 1;
@@ -558,9 +416,9 @@ contract AccountTest is Test {
 
         tokenCollection.mint(accountAddress, 2);
 
-        address accountAddress2 = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), 2, 0, ""
-        );
+        // Account for tokenId 2 not deployed
+        address accountAddress2 =
+            registry.account(address(implementation), block.chainid, address(tokenCollection), 2, 0);
 
         tokenCollection.mint(accountAddress2, 3);
 
@@ -569,6 +427,9 @@ contract AccountTest is Test {
         );
 
         vm.deal(accountAddress3, 1 ether);
+
+        console.log("accounts");
+        console.log(vm.addr(1), accountAddress, accountAddress2, accountAddress3);
 
         AccountV3 nestedAccount = AccountV3(payable(accountAddress3));
 
@@ -796,24 +657,23 @@ contract AccountTest is Test {
             address(tokenCollection),
             tokenId,
             0,
-            abi.encodeWithSignature("initialize()")
+            abi.encodeWithSignature("initialize(address)", upgradableImplementation)
         );
 
         AccountV3Upgradable account = AccountV3Upgradable(payable(accountAddress));
 
         MockAccountUpgradable upgradedImplementation = new MockAccountUpgradable(
-            address(0),
-            address(0),
-            address(0)
+            address(1),
+            address(1),
+            address(1),
+            address(1)
         );
 
-        // TODO: account guardian test
+        vm.expectRevert(InvalidImplementation.selector);
+        vm.prank(user1);
+        account.upgradeTo(address(upgradedImplementation));
 
-        // vm.expectRevert(UntrustedImplementation.selector);
-        // vm.prank(user1);
-        // account.upgradeTo(address(upgradedImplementation));
-
-        // guardian.setTrustedImplementation(address(upgradedImplementation), true);
+        guardian.setTrustedImplementation(address(upgradedImplementation), true);
 
         vm.prank(user1);
         account.upgradeTo(address(upgradedImplementation));

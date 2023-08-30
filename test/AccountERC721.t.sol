@@ -26,7 +26,7 @@ contract AccountERC721Test is Test {
     function setUp() public {
         dummyERC721 = new MockERC721();
 
-        implementation = new AccountV3(address(0), address(0), address(0));
+        implementation = new AccountV3(address(1), address(1), address(1), address(1));
         registry = new ERC6551Registry();
 
         tokenCollection = new MockERC721();
@@ -91,45 +91,22 @@ contract AccountERC721Test is Test {
         assertEq(dummyERC721.ownerOf(1), user1);
     }
 
-    // function testCannotOwnSelf() public {
-    //     address owner = vm.addr(1);
-    //     uint256 tokenId = 100;
-    //     uint256 salt = 200;
+    function testCannotOwnSelf() public {
+        address owner = vm.addr(1);
+        uint256 tokenId = 100;
+        uint256 salt = 200;
 
-    //     tokenCollection.mint(owner, tokenId);
+        tokenCollection.mint(owner, tokenId);
 
-    //     vm.prank(owner, owner);
-    //     address account =
-    //         registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, salt, "");
+        vm.prank(owner, owner);
+        address account = registry.createAccount(
+            address(implementation), block.chainid, address(tokenCollection), tokenId, salt, ""
+        );
 
-    //     vm.prank(owner);
-    //     vm.expectRevert(OwnershipCycle.selector);
-    //     tokenCollection.safeTransferFrom(owner, account, tokenId);
-    // }
-
-    // function testExceedsOwnershipDepthLimit() public {
-    //     uint256 count = 7;
-    //     address[] memory owners = new address[](count);
-    //     address[] memory accounts = new address[](count);
-
-    //     for (uint256 i = 0; i < count; i++) {
-    //         uint256 tokenId = i + 1;
-    //         owners[i] = vm.addr(tokenId);
-    //         tokenCollection.mint(owners[i], tokenId);
-    //         accounts[i] =
-    //             registry.createAccount(address(implementation), block.chainid, address(tokenCollection), tokenId, 0, "");
-    //     }
-
-    //     for (uint256 i = 0; i < count - 1; i++) {
-    //         uint256 tokenId = i + 1;
-    //         vm.prank(owners[i]);
-    //         tokenCollection.safeTransferFrom(owners[i], accounts[i + 1], tokenId);
-    //     }
-
-    //     // Executes without error because cycle protection max depth has been exceeded
-    //     vm.prank(owners[6]);
-    //     tokenCollection.safeTransferFrom(owners[6], accounts[0], 7);
-    // }
+        vm.prank(owner);
+        vm.expectRevert(OwnershipCycle.selector);
+        tokenCollection.safeTransferFrom(owner, account, tokenId);
+    }
 
     function testOverrideERC721Receiver(uint256 tokenId) public {
         address user1 = vm.addr(1);

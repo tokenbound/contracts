@@ -9,11 +9,18 @@ import "erc6551/interfaces/IERC6551Account.sol";
 
 import "./Signatory.sol";
 
+/**
+ * @title ERC-6551 Account Support
+ * @dev Implements the ERC-6551 Account interface
+ */
 abstract contract ERC6551Account is IERC6551Account, ERC165, Signatory {
     uint256 _state;
 
     receive() external payable virtual {}
 
+    /**
+     * @dev See: {IERC6551Account-isValidSigner}
+     */
     function isValidSigner(address signer, bytes calldata data)
         external
         view
@@ -26,6 +33,9 @@ abstract contract ERC6551Account is IERC6551Account, ERC165, Signatory {
         return bytes4(0);
     }
 
+    /**
+     * @dev See: {IERC6551Account-token}
+     */
     function token()
         public
         view
@@ -34,6 +44,9 @@ abstract contract ERC6551Account is IERC6551Account, ERC165, Signatory {
         return ERC6551AccountLib.token();
     }
 
+    /**
+     * @dev See: {IERC6551Account-state}
+     */
     function state() public view returns (uint256) {
         return _state;
     }
@@ -43,5 +56,8 @@ abstract contract ERC6551Account is IERC6551Account, ERC165, Signatory {
             interfaceId == type(IERC6551Account).interfaceId || super.supportsInterface(interfaceId);
     }
 
+    /**
+     * @dev Returns true if a given signer is authorized to use this account
+     */
     function _isValidSigner(address signer, bytes memory) internal view virtual returns (bool);
 }

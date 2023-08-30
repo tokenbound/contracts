@@ -16,7 +16,7 @@ import "./NestedAccountExecutor.sol";
 
 /**
  * @title Tokenbound Executor
- * @notice Enables basic ERC-6551 execution as well as batch, nested, and mult-account execution
+ * @dev Enables basic ERC-6551 execution as well as batch, nested, and mult-account execution
  */
 abstract contract TokenboundExecutor is
     ERC6551Executor,
@@ -27,7 +27,9 @@ abstract contract TokenboundExecutor is
     constructor(address multicallForwarder, address _erc6551Registry)
         ERC2771Context(multicallForwarder)
         NestedAccountExecutor(_erc6551Registry)
-    {}
+    {
+        if (multicallForwarder == address(0)) revert InvalidMulticallForwarder();
+    }
 
     function _msgSender()
         internal

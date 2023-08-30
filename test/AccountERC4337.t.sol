@@ -28,7 +28,7 @@ contract AccountERC4337Test is Test {
 
     function setUp() public {
         entryPoint = new EntryPoint();
-        implementation = new AccountV3(address(entryPoint), address(0), address(0));
+        implementation = new AccountV3(address(entryPoint), address(1), address(1), address(1));
         registry = new ERC6551Registry();
 
         tokenCollection = new MockERC721();

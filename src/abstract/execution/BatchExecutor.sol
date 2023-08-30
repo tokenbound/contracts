@@ -7,7 +7,7 @@ import "./BaseExecutor.sol";
 
 /**
  * @title Batch Executor
- * @notice Allows multiple operations to be executed from this account in a single transaction
+ * @dev Allows multiple operations to be executed from this account in a single transaction
  */
 abstract contract BatchExecutor is BaseExecutor {
     struct Operation {

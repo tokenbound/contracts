@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 
-import "../src/Account.sol";
+import "../src/AccountV3.sol";
 import "../src/AccountProxy.sol";
 
 contract DeployAccount is Script {

@@ -1,27 +1,41 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import "forge-std/console.sol";
+import "erc6551/lib/ERC6551AccountLib.sol";
 
 import "../utils/Errors.sol";
 import "../lib/LibSandbox.sol";
 
+/**
+ * @title Account Overrides
+ * @dev Allows the root owner of a token bound account to override the implementation of a given
+ * function selector on the account. Overrides are keyed by the root owner address, so will be
+ * disabled upon transfer of the token which owns this account tree.
+ */
 abstract contract Overridable {
-    /// @dev mapping from owner => selector => implementation
+    /**
+     * @dev mapping from owner => selector => implementation
+     */
     mapping(address => mapping(bytes4 => address)) public overrides;
 
     event OverrideUpdated(address owner, bytes4 selector, address implementation);
 
-    /// @dev sets the implementation address for a given function call
+    /**
+     * @dev Sets the implementation address for a given array of function selectors. Can only be
+     * called by the root owner of the account
+     *
+     * @param selectors Array of selectors to override
+     * @param implementations Array of implementation address corresponding to selectors
+     */
     function setOverrides(bytes4[] calldata selectors, address[] calldata implementations)
         external
         virtual
     {
-        address _owner = _getStorageOwner();
+        (uint256 chainId, address tokenContract, uint256 tokenId) = ERC6551AccountLib.token();
+        address _owner = _rootTokenOwner(chainId, tokenContract, tokenId);
 
         if (_owner == address(0)) revert NotAuthorized();
-
-        if (!_canSetOverrides()) revert NotAuthorized();
+        if (msg.sender != _owner) revert NotAuthorized();
 
         _beforeSetOverrides();
 
@@ -38,8 +52,14 @@ abstract contract Overridable {
         }
     }
 
+    /**
+     * @dev Calls into the implementation address using sandbox if override is set for the current
+     * function selector. If an implementation is defined, this funciton will either revert or
+     * return with the return value of the implementation
+     */
     function _handleOverride() internal virtual {
-        address _owner = _getStorageOwner();
+        (uint256 chainId, address tokenContract, uint256 tokenId) = ERC6551AccountLib.token();
+        address _owner = _rootTokenOwner(chainId, tokenContract, tokenId);
 
         address implementation = overrides[_owner][msg.sig];
 
@@ -54,8 +74,15 @@ abstract contract Overridable {
         }
     }
 
+    /**
+     * @dev Static calls into the implementation addressif override is set for the current function
+     * selector. If an implementation is defined, this funciton will either revert or return with
+     * the return value of the implementation
+     */
     function _handleOverrideStatic() internal view virtual {
-        address _owner = _getStorageOwner();
+        (uint256 chainId, address tokenContract, uint256 tokenId) = ERC6551AccountLib.token();
+        address _owner = _rootTokenOwner(chainId, tokenContract, tokenId);
+
         address implementation = overrides[_owner][msg.sig];
 
         if (implementation != address(0)) {
@@ -69,7 +96,9 @@ abstract contract Overridable {
 
     function _beforeSetOverrides() internal virtual {}
 
-    function _getStorageOwner() internal view virtual returns (address);
-
-    function _canSetOverrides() internal view virtual returns (bool);
+    function _rootTokenOwner(uint256 chainId, address tokenContract, uint256 tokenId)
+        internal
+        view
+        virtual
+        returns (address);
 }
