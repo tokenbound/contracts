@@ -17,6 +17,7 @@ contract AccountProxy is Proxy, ERC1967Upgrade {
 
     function initialize(address implementation) external {
         if (!guardian.isTrustedImplementation(implementation)) revert InvalidImplementation();
+        if (ERC1967Upgrade._getImplementation() != address(0)) revert AlreadyInitialized();
         ERC1967Upgrade._upgradeTo(implementation);
     }
 

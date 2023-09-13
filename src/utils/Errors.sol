@@ -10,6 +10,7 @@ error AccountLocked();
 error InvalidAccountProof();
 error InvalidGuardian();
 error InvalidImplementation();
+error AlreadyInitialized();
 error InvalidEntryPoint();
 error InvalidMulticallForwarder();
 error InvalidERC6551Registry();
