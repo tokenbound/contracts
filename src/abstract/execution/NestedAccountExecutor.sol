@@ -14,6 +14,8 @@ import "../../lib/LibSandbox.sol";
 import "./SandboxExecutor.sol";
 import "./BaseExecutor.sol";
 
+import "../Lockable.sol";
+
 /**
  * @title Nested Account Executor
  * @dev Allows the root owner of a nested token bound account to execute transactions directly
@@ -66,6 +68,11 @@ abstract contract NestedAccountExecutor is BaseExecutor {
             );
 
             if (tokenContract.code.length == 0) revert InvalidAccountProof();
+
+            if (next.code.length > 0) {
+                if (Lockable(next).isLocked()) revert AccountLocked();
+            }
+
             try IERC721(tokenContract).ownerOf(tokenId) returns (address _owner) {
                 if (_owner != current) revert InvalidAccountProof();
                 current = next;
