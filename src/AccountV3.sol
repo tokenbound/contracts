@@ -118,7 +118,7 @@ contract AccountV3 is
             revert OwnershipCycle();
         }
 
-        _handleOverrideStatic();
+        _handleOverride();
 
         return this.onERC721Received.selector;
     }
@@ -132,7 +132,7 @@ contract AccountV3 is
         override
         returns (bytes4)
     {
-        _handleOverrideStatic();
+        _handleOverride();
         return this.onERC1155Received.selector;
     }
 
@@ -146,7 +146,7 @@ contract AccountV3 is
         uint256[] memory,
         bytes memory
     ) public virtual override returns (bytes4) {
-        _handleOverrideStatic();
+        _handleOverride();
         return this.onERC1155BatchReceived.selector;
     }
 
