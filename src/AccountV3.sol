@@ -299,6 +299,10 @@ contract AccountV3 is
      * @dev Returns the root owner of an account. If account is not owned by a TBA, returns the
      * owner of the NFT bound to this account. If account is owned by a TBA, iterates up token
      * ownership tree and returns root owner.
+     *
+     * *Security Warning*: the return value of this function can only be trusted if it is also the
+     * address of the sender (as the code of the NFT contract cannot be trusted). This function
+     * should therefore only be used for authorization and never authentication.
      */
     function _rootTokenOwner(uint256 chainId, address tokenContract, uint256 tokenId)
         internal
