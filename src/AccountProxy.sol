@@ -9,14 +9,20 @@ import "./utils/Errors.sol";
 
 contract AccountProxy is Proxy, ERC1967Upgrade {
     IAccountGuardian immutable guardian;
+    address immutable defaultImplementation;
 
-    constructor(address _guardian) {
-        if (_guardian == address(0)) revert InvalidImplementation();
+    constructor(address _guardian, address _defaultImplementation) {
+        if (_guardian == address(0) || _defaultImplementation == address(0)) {
+            revert InvalidImplementation();
+        }
         guardian = IAccountGuardian(_guardian);
+        defaultImplementation = _defaultImplementation;
     }
 
     function initialize(address implementation) external {
-        if (!guardian.isTrustedImplementation(implementation)) revert InvalidImplementation();
+        if (implementation != defaultImplementation) {
+            if (!guardian.isTrustedImplementation(implementation)) revert InvalidImplementation();
+        }
         if (ERC1967Upgrade._getImplementation() != address(0)) revert AlreadyInitialized();
         ERC1967Upgrade._upgradeTo(implementation);
     }

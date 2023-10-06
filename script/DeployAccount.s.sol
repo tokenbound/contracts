@@ -20,7 +20,7 @@ contract DeployAccount is Script {
 
         new AccountProxy{
             salt: 0x6551655165516551655165516551655165516551655165516551655165516551
-        }(0x1a0E97Dae78590b7E967E725a5c848eD034f5510);
+        }(0x2D4d71C69b5631b557a4de7bD8aF82e2202da856, 0x1a0E97Dae78590b7E967E725a5c848eD034f5510);
 
         vm.stopBroadcast();
     }

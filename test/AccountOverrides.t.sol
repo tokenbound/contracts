@@ -44,7 +44,7 @@ contract AccountTest is Test {
             new AccountV3(address(1), address(forwarder), address(registry), address(guardian));
         upgradableImplementation =
         new AccountV3Upgradable(address(1), address(forwarder), address(registry), address(guardian));
-        proxy = new AccountProxy(address(guardian));
+        proxy = new AccountProxy(address(guardian), address(implementation));
         guardian.setTrustedImplementation(address(upgradableImplementation), true);
 
         tokenCollection = new MockERC721();

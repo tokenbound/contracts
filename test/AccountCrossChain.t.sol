@@ -47,7 +47,7 @@ contract AccountTest is Test {
 
         guardian = new AccountGuardian();
         implementation = new AccountV3(address(1), address(1), address(registry), address(guardian));
-        proxy = new AccountProxy(address(guardian));
+        proxy = new AccountProxy(address(guardian), address(implementation));
 
         vm.makePersistent(address(registry));
         vm.makePersistent(address(guardian));
