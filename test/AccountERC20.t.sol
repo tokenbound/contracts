@@ -36,7 +36,7 @@ contract AccountERC20Test is Test {
         address user1 = vm.addr(1);
 
         address computedAccountInstance = registry.account(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         tokenCollection.mint(user1, tokenId);
@@ -47,7 +47,7 @@ contract AccountERC20Test is Test {
         assertEq(dummyERC20.balanceOf(computedAccountInstance), 1 ether);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         AccountV3 account = AccountV3(payable(accountAddress));
@@ -65,7 +65,7 @@ contract AccountERC20Test is Test {
         address user1 = vm.addr(1);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         tokenCollection.mint(user1, tokenId);

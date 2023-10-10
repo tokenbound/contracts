@@ -34,7 +34,7 @@ contract AccountETHTest is Test {
 
         // get address that account will be deployed to (before token is minted)
         address accountAddress = registry.account(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         // mint token for account to user1
@@ -51,7 +51,7 @@ contract AccountETHTest is Test {
 
         // deploy account contract (from a different wallet)
         address createdAccountInstance = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         assertEq(accountAddress, createdAccountInstance);
@@ -72,7 +72,7 @@ contract AccountETHTest is Test {
         vm.deal(user1, 0.2 ether);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         tokenCollection.mint(user1, tokenId);

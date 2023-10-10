@@ -60,7 +60,7 @@ contract AccountTest is Test {
         address user2 = vm.addr(2);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -84,7 +84,7 @@ contract AccountTest is Test {
         address user2 = vm.addr(2);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -114,7 +114,7 @@ contract AccountTest is Test {
         uint256 tokenId = 1;
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         AccountV3 account = AccountV3(payable(accountAddress));
@@ -162,7 +162,7 @@ contract AccountTest is Test {
         uint256 tokenId = 1;
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         AccountV3 account = AccountV3(payable(accountAddress));
@@ -183,7 +183,7 @@ contract AccountTest is Test {
         address user2 = vm.addr(2);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -271,7 +271,7 @@ contract AccountTest is Test {
         address user1 = vm.addr(1);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -290,7 +290,7 @@ contract AccountTest is Test {
         address user1 = vm.addr(1);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -299,7 +299,7 @@ contract AccountTest is Test {
 
         vm.prank(user1);
         vm.expectRevert(InvalidOperation.selector);
-        account.execute(vm.addr(2), 0.1 ether, "", type(uint256).max);
+        account.execute(vm.addr(2), 0.1 ether, "", type(uint8).max);
     }
 
     function testExecuteCreate() public {
@@ -308,7 +308,7 @@ contract AccountTest is Test {
         address user2 = vm.addr(2);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         AccountV3 account = AccountV3(payable(accountAddress));
@@ -338,7 +338,7 @@ contract AccountTest is Test {
         address user2 = vm.addr(2);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         AccountV3 account = AccountV3(payable(accountAddress));
@@ -374,7 +374,7 @@ contract AccountTest is Test {
         address user2 = vm.addr(2);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -411,19 +411,19 @@ contract AccountTest is Test {
         address user2 = vm.addr(2);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         tokenCollection.mint(accountAddress, 2);
 
         // Account for tokenId 2 not deployed
         address accountAddress2 =
-            registry.account(address(implementation), block.chainid, address(tokenCollection), 2, 0);
+            registry.account(address(implementation), 0, block.chainid, address(tokenCollection), 2);
 
         tokenCollection.mint(accountAddress2, 3);
 
         address accountAddress3 = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), 3, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), 3
         );
 
         vm.deal(accountAddress3, 1 ether);
@@ -435,8 +435,8 @@ contract AccountTest is Test {
 
         NestedAccountExecutor.ERC6551AccountInfo[] memory proof =
             new NestedAccountExecutor.ERC6551AccountInfo[](2);
-        proof[0] = NestedAccountExecutor.ERC6551AccountInfo(address(tokenCollection), 1, 0);
-        proof[1] = NestedAccountExecutor.ERC6551AccountInfo(address(tokenCollection), 2, 0);
+        proof[0] = NestedAccountExecutor.ERC6551AccountInfo(0, address(tokenCollection), 1);
+        proof[1] = NestedAccountExecutor.ERC6551AccountInfo(0, address(tokenCollection), 2);
 
         uint256 state = nestedAccount.state();
 
@@ -461,19 +461,19 @@ contract AccountTest is Test {
         address user2 = vm.addr(2);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         tokenCollection.mint(user1, 2);
 
         address accountAddress2 = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), 2, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), 2
         );
 
         tokenCollection.mint(user1, 3);
 
         address accountAddress3 = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), 3, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), 3
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -484,7 +484,7 @@ contract AccountTest is Test {
         calls[0] = MulticallForwarder.Call(
             accountAddress,
             abi.encodeWithSignature(
-                "execute(address,uint256,bytes,uint256)",
+                "execute(address,uint256,bytes,uint8)",
                 vm.addr(2),
                 0.1 ether,
                 "",
@@ -494,7 +494,7 @@ contract AccountTest is Test {
         calls[1] = MulticallForwarder.Call(
             accountAddress2,
             abi.encodeWithSignature(
-                "execute(address,uint256,bytes,uint256)",
+                "execute(address,uint256,bytes,uint8)",
                 vm.addr(2),
                 0.1 ether,
                 "",
@@ -504,7 +504,7 @@ contract AccountTest is Test {
         calls[2] = MulticallForwarder.Call(
             accountAddress3,
             abi.encodeWithSignature(
-                "execute(address,uint256,bytes,uint256)",
+                "execute(address,uint256,bytes,uint8)",
                 vm.addr(2),
                 0.1 ether,
                 "",
@@ -539,7 +539,7 @@ contract AccountTest is Test {
         address user1 = vm.addr(1);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -629,12 +629,7 @@ contract AccountTest is Test {
         uint256 tokenId = 1;
 
         address accountAddress = registry.createAccount(
-            address(implementation),
-            block.chainid,
-            address(tokenCollection),
-            tokenId,
-            0,
-            abi.encodeWithSignature("initialize()")
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -642,7 +637,7 @@ contract AccountTest is Test {
         AccountV3 account = AccountV3(payable(accountAddress));
 
         assertEq(account.supportsInterface(0x6faff5f1), true); // IERC6551Account
-        assertEq(account.supportsInterface(0x74420f4c), true); // IERC6551Executable
+        assertEq(account.supportsInterface(0x51945447), true); // IERC6551Executable
         assertEq(account.supportsInterface(type(IERC1155Receiver).interfaceId), true);
         assertEq(account.supportsInterface(type(IERC165).interfaceId), true);
     }
@@ -652,14 +647,10 @@ contract AccountTest is Test {
         address user1 = vm.addr(1);
 
         address accountAddress = registry.createAccount(
-            address(proxy),
-            block.chainid,
-            address(tokenCollection),
-            tokenId,
-            0,
-            abi.encodeWithSignature("initialize(address)", upgradableImplementation)
+            address(proxy), 0, block.chainid, address(tokenCollection), tokenId
         );
 
+        AccountProxy(payable(accountAddress)).initialize(address(upgradableImplementation));
         AccountV3Upgradable account = AccountV3Upgradable(payable(accountAddress));
 
         MockAccountUpgradable upgradedImplementation = new MockAccountUpgradable(
@@ -694,13 +685,10 @@ contract AccountTest is Test {
         AccountProxy _proxy = new AccountProxy(address(1), address(upgradableImplementation));
 
         address accountAddress = registry.createAccount(
-            address(_proxy),
-            block.chainid,
-            address(tokenCollection),
-            tokenId,
-            0,
-            abi.encodeWithSignature("initialize(address)", upgradableImplementation)
+            address(_proxy), 0, block.chainid, address(tokenCollection), tokenId
         );
+
+        AccountProxy(payable(accountAddress)).initialize(address(upgradableImplementation));
 
         assertEq(
             AccountV3(payable(accountAddress)).isValidSigner(vm.addr(1), ""),

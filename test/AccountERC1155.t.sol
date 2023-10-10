@@ -37,7 +37,7 @@ contract AccountERC1155Test is Test {
         address user1 = vm.addr(1);
 
         address computedAccountInstance = registry.account(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         tokenCollection.mint(user1, tokenId);
@@ -48,7 +48,7 @@ contract AccountERC1155Test is Test {
         assertEq(dummyERC1155.balanceOf(computedAccountInstance, 1), 10);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         AccountV3 account = AccountV3(payable(accountAddress));
@@ -67,7 +67,7 @@ contract AccountERC1155Test is Test {
         address user1 = vm.addr(1);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         tokenCollection.mint(user1, tokenId);
@@ -93,7 +93,7 @@ contract AccountERC1155Test is Test {
         address user1 = vm.addr(1);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         tokenCollection.mint(user1, tokenId);
@@ -125,7 +125,7 @@ contract AccountERC1155Test is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         AccountV3 account = AccountV3(payable(accountAddress));
@@ -153,7 +153,7 @@ contract AccountERC1155Test is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         AccountV3 account = AccountV3(payable(accountAddress));

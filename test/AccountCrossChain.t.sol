@@ -72,7 +72,7 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
         uint256 chainId = block.chainid + 1;
         address accountAddress = registry.createAccount(
-            address(implementation), chainId, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, chainId, address(tokenCollection), tokenId
         );
 
         // create non-native account on fork2
@@ -80,7 +80,7 @@ contract AccountTest is Test {
         assertEq(address(tokenCollection).code.length, 0);
         assertFalse(chainId == block.chainid);
         registry.createAccount(
-            address(implementation), chainId, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, chainId, address(tokenCollection), tokenId
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -106,11 +106,10 @@ contract AccountTest is Test {
 
         address nativeAccountAddress = registry.createAccount(
             address(implementation),
+            0,
             block.chainid,
             address(tokenCollection),
-            tokenId,
-            0,
-            abi.encodeWithSignature("initialize()")
+            tokenId
         );
 
         AccountV3 nativeAccount = AccountV3(payable(nativeAccountAddress));
@@ -130,7 +129,7 @@ contract AccountTest is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
         uint256 chainId = block.chainid + 1;
         address accountAddress = registry.createAccount(
-            address(implementation), chainId, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, chainId, address(tokenCollection), tokenId
         );
 
         // create non-native account on fork2
@@ -138,7 +137,7 @@ contract AccountTest is Test {
         assertEq(address(tokenCollection).code.length, 0);
         assertFalse(chainId == block.chainid);
         registry.createAccount(
-            address(implementation), chainId, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, chainId, address(tokenCollection), tokenId
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -158,11 +157,10 @@ contract AccountTest is Test {
 
         address nativeAccountAddress = registry.createAccount(
             address(implementation),
+            0,
             block.chainid,
             address(tokenCollection),
-            tokenId,
-            0,
-            abi.encodeWithSignature("initialize()")
+            tokenId
         );
 
         AccountV3 nativeAccount = AccountV3(payable(nativeAccountAddress));

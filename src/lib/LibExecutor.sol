@@ -5,12 +5,12 @@ import "../utils/Errors.sol";
 import "./LibSandbox.sol";
 
 library LibExecutor {
-    uint256 constant OP_CALL = 0;
-    uint256 constant OP_DELEGATECALL = 1;
-    uint256 constant OP_CREATE = 2;
-    uint256 constant OP_CREATE2 = 3;
+    uint8 constant OP_CALL = 0;
+    uint8 constant OP_DELEGATECALL = 1;
+    uint8 constant OP_CREATE = 2;
+    uint8 constant OP_CREATE2 = 3;
 
-    function _execute(address to, uint256 value, bytes calldata data, uint256 operation)
+    function _execute(address to, uint256 value, bytes calldata data, uint8 operation)
         internal
         returns (bytes memory)
     {

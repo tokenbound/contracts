@@ -61,7 +61,7 @@ contract AccountTest is Test {
         address user2 = vm.addr(2);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         vm.deal(accountAddress, 1 ether);
@@ -92,13 +92,13 @@ contract AccountTest is Test {
         address user2 = vm.addr(2);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         tokenCollection.mint(accountAddress, tokenId2);
 
         address accountAddress2 = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId2, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId2
         );
 
         vm.deal(accountAddress2, 1 ether);

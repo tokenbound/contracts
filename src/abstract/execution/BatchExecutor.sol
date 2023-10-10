@@ -14,7 +14,7 @@ abstract contract BatchExecutor is BaseExecutor {
         address to;
         uint256 value;
         bytes data;
-        uint256 operation;
+        uint8 operation;
     }
 
     /**

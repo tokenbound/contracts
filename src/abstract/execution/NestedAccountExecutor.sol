@@ -26,9 +26,9 @@ abstract contract NestedAccountExecutor is BaseExecutor {
     address public immutable erc6551Registry;
 
     struct ERC6551AccountInfo {
+        bytes32 salt;
         address tokenContract;
         uint256 tokenId;
-        uint256 salt;
     }
 
     constructor(address _erc6551Registry) {
@@ -51,7 +51,7 @@ abstract contract NestedAccountExecutor is BaseExecutor {
         address to,
         uint256 value,
         bytes calldata data,
-        uint256 operation,
+        uint8 operation,
         ERC6551AccountInfo[] calldata proof
     ) external payable returns (bytes memory) {
         uint256 length = proof.length;
@@ -64,7 +64,7 @@ abstract contract NestedAccountExecutor is BaseExecutor {
             uint256 tokenId = accountInfo.tokenId;
 
             address next = ERC6551AccountLib.computeAddress(
-                erc6551Registry, __self, block.chainid, tokenContract, tokenId, accountInfo.salt
+                erc6551Registry, __self, accountInfo.salt, block.chainid, tokenContract, tokenId
             );
 
             if (tokenContract.code.length == 0) revert InvalidAccountProof();

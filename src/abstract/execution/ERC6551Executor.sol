@@ -28,7 +28,7 @@ abstract contract ERC6551Executor is IERC6551Executable, ERC165, BaseExecutor {
      * @param data Encoded calldata of operation
      * @param operation Operation type (0=CALL, 1=DELEGATECALL, 2=CREATE, 3=CREATE2)
      */
-    function execute(address to, uint256 value, bytes calldata data, uint256 operation)
+    function execute(address to, uint256 value, bytes calldata data, uint8 operation)
         external
         payable
         virtual

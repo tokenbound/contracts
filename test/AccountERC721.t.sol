@@ -36,7 +36,7 @@ contract AccountERC721Test is Test {
         address user1 = vm.addr(1);
 
         address computedAccountInstance = registry.account(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         tokenCollection.mint(user1, tokenId);
@@ -48,7 +48,7 @@ contract AccountERC721Test is Test {
         assertEq(dummyERC721.ownerOf(1), computedAccountInstance);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         AccountV3 account = AccountV3(payable(accountAddress));
@@ -68,7 +68,7 @@ contract AccountERC721Test is Test {
         address user1 = vm.addr(1);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         tokenCollection.mint(user1, tokenId);
@@ -94,13 +94,13 @@ contract AccountERC721Test is Test {
     function testCannotOwnSelf() public {
         address owner = vm.addr(1);
         uint256 tokenId = 100;
-        uint256 salt = 200;
+        bytes32 salt = bytes32(uint256(200));
 
         tokenCollection.mint(owner, tokenId);
 
         vm.prank(owner, owner);
         address account = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, salt, ""
+            address(implementation), salt, block.chainid, address(tokenCollection), tokenId
         );
 
         vm.prank(owner);
@@ -115,7 +115,7 @@ contract AccountERC721Test is Test {
         assertEq(tokenCollection.ownerOf(tokenId), user1);
 
         address accountAddress = registry.createAccount(
-            address(implementation), block.chainid, address(tokenCollection), tokenId, 0, ""
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         AccountV3 account = AccountV3(payable(accountAddress));
