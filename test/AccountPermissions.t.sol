@@ -16,7 +16,6 @@ import "../src/AccountV3.sol";
 import "../src/AccountV3Upgradable.sol";
 import "../src/AccountGuardian.sol";
 import "../src/AccountProxy.sol";
-import "../src/utils/MulticallForwarder.sol";
 
 import "./mocks/MockERC721.sol";
 import "./mocks/MockSigner.sol";
@@ -26,7 +25,6 @@ import "./mocks/MockReverter.sol";
 import "./mocks/MockAccountUpgradable.sol";
 
 contract AccountTest is Test {
-    MulticallForwarder forwarder;
     AccountV3 implementation;
     AccountV3Upgradable upgradableImplementation;
     AccountProxy proxy;
@@ -38,12 +36,10 @@ contract AccountTest is Test {
     function setUp() public {
         registry = new ERC6551Registry();
 
-        forwarder = new MulticallForwarder();
         guardian = new AccountGuardian();
-        implementation =
-            new AccountV3(address(1), address(forwarder), address(registry), address(guardian));
+        implementation = new AccountV3(address(1), address(2), address(registry), address(guardian));
         upgradableImplementation =
-        new AccountV3Upgradable(address(1), address(forwarder), address(registry), address(guardian));
+            new AccountV3Upgradable(address(1), address(2), address(registry), address(guardian));
         proxy = new AccountProxy(address(guardian), address(implementation));
         guardian.setTrustedImplementation(address(upgradableImplementation), true);
 

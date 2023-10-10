@@ -12,11 +12,12 @@ import "erc6551/ERC6551Registry.sol";
 import "erc6551/interfaces/IERC6551Account.sol";
 import "erc6551/interfaces/IERC6551Executable.sol";
 
+import "multicall-authenticated/Multicall3.sol";
+
 import "../src/AccountV3.sol";
 import "../src/AccountV3Upgradable.sol";
 import "../src/AccountGuardian.sol";
 import "../src/AccountProxy.sol";
-import "../src/utils/MulticallForwarder.sol";
 
 import "./mocks/MockERC721.sol";
 import "./mocks/MockSigner.sol";
@@ -26,7 +27,7 @@ import "./mocks/MockReverter.sol";
 import "./mocks/MockAccountUpgradable.sol";
 
 contract AccountTest is Test {
-    MulticallForwarder forwarder;
+    Multicall3 forwarder;
     AccountV3 implementation;
     AccountV3Upgradable upgradableImplementation;
     AccountProxy proxy;
@@ -38,7 +39,7 @@ contract AccountTest is Test {
     function setUp() public {
         registry = new ERC6551Registry();
 
-        forwarder = new MulticallForwarder();
+        forwarder = new Multicall3();
         guardian = new AccountGuardian();
         implementation =
             new AccountV3(address(1), address(forwarder), address(registry), address(guardian));
@@ -480,9 +481,10 @@ contract AccountTest is Test {
         vm.deal(accountAddress2, 1 ether);
         vm.deal(accountAddress3, 1 ether);
 
-        MulticallForwarder.Call[] memory calls = new MulticallForwarder.Call[](3);
-        calls[0] = MulticallForwarder.Call(
+        Multicall3.Call3[] memory calls = new Multicall3.Call3[](3);
+        calls[0] = Multicall3.Call3(
             accountAddress,
+            false,
             abi.encodeWithSignature(
                 "execute(address,uint256,bytes,uint8)",
                 vm.addr(2),
@@ -491,8 +493,9 @@ contract AccountTest is Test {
                 LibExecutor.OP_CALL
             )
         );
-        calls[1] = MulticallForwarder.Call(
+        calls[1] = Multicall3.Call3(
             accountAddress2,
+            false,
             abi.encodeWithSignature(
                 "execute(address,uint256,bytes,uint8)",
                 vm.addr(2),
@@ -501,8 +504,9 @@ contract AccountTest is Test {
                 LibExecutor.OP_CALL
             )
         );
-        calls[2] = MulticallForwarder.Call(
+        calls[2] = Multicall3.Call3(
             accountAddress3,
+            false,
             abi.encodeWithSignature(
                 "execute(address,uint256,bytes,uint8)",
                 vm.addr(2),
@@ -513,7 +517,7 @@ contract AccountTest is Test {
         );
 
         vm.prank(user1);
-        MulticallForwarder.Result[] memory results = forwarder.forward(calls);
+        Multicall3.Result[] memory results = forwarder.aggregate3(calls);
         for (uint256 i = 0; i < results.length; i++) {
             assertTrue(results[i].success);
             assertEq(results[i].returnData, abi.encode(new bytes(0)));
@@ -523,7 +527,8 @@ contract AccountTest is Test {
 
         // should fail when called by non-owner
         vm.prank(user2);
-        results = forwarder.forward(calls);
+        vm.expectRevert("Multicall3: call failed");
+        results = forwarder.aggregate3(calls);
 
         // balance should not have changed
         assertEq(user2.balance, 0.3 ether);

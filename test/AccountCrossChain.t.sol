@@ -16,7 +16,6 @@ import "../src/AccountV3.sol";
 import "../src/AccountV3Upgradable.sol";
 import "../src/AccountGuardian.sol";
 import "../src/AccountProxy.sol";
-import "../src/utils/MulticallForwarder.sol";
 
 import "../src/lib/OPAddressAliasHelper.sol";
 
@@ -105,11 +104,7 @@ contract AccountTest is Test {
         assertEq(user1.balance, 0.1 ether);
 
         address nativeAccountAddress = registry.createAccount(
-            address(implementation),
-            0,
-            block.chainid,
-            address(tokenCollection),
-            tokenId
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         AccountV3 nativeAccount = AccountV3(payable(nativeAccountAddress));
@@ -156,11 +151,7 @@ contract AccountTest is Test {
         assertEq(user1.balance, 0.1 ether);
 
         address nativeAccountAddress = registry.createAccount(
-            address(implementation),
-            0,
-            block.chainid,
-            address(tokenCollection),
-            tokenId
+            address(implementation), 0, block.chainid, address(tokenCollection), tokenId
         );
 
         AccountV3 nativeAccount = AccountV3(payable(nativeAccountAddress));
