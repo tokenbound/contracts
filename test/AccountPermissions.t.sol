@@ -26,22 +26,14 @@ import "./mocks/MockAccountUpgradable.sol";
 
 contract AccountTest is Test {
     AccountV3 implementation;
-    AccountV3Upgradable upgradableImplementation;
-    AccountProxy proxy;
     ERC6551Registry public registry;
-    AccountGuardian public guardian;
 
     MockERC721 public tokenCollection;
 
     function setUp() public {
         registry = new ERC6551Registry();
 
-        guardian = new AccountGuardian();
-        implementation = new AccountV3(address(1), address(2), address(registry), address(guardian));
-        upgradableImplementation =
-            new AccountV3Upgradable(address(1), address(2), address(registry), address(guardian));
-        proxy = new AccountProxy(address(guardian), address(implementation));
-        guardian.setTrustedImplementation(address(upgradableImplementation), true);
+        implementation = new AccountV3(address(1), address(1), address(registry), address(1));
 
         tokenCollection = new MockERC721();
 

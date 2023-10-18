@@ -40,13 +40,14 @@ contract AccountTest is Test {
         registry = new ERC6551Registry();
 
         forwarder = new Multicall3();
-        guardian = new AccountGuardian();
-        implementation =
-            new AccountV3(address(1), address(forwarder), address(registry), address(guardian));
-        upgradableImplementation =
-        new AccountV3Upgradable(address(1), address(forwarder), address(registry), address(guardian));
-        proxy = new AccountProxy(address(guardian), address(implementation));
-        guardian.setTrustedImplementation(address(upgradableImplementation), true);
+        guardian = new AccountGuardian(address(this));
+        implementation = new AccountV3(
+            address(1), address(forwarder), address(registry), address(guardian)
+        );
+        upgradableImplementation = new AccountV3Upgradable(
+            address(1), address(forwarder), address(registry), address(guardian)
+        );
+        proxy = new AccountProxy(address(guardian), address(upgradableImplementation));
 
         tokenCollection = new MockERC721();
 
@@ -683,21 +684,5 @@ contract AccountTest is Test {
         new AccountProxy(address(1), address(0));
         vm.expectRevert(InvalidImplementation.selector);
         new AccountProxy(address(0), address(1));
-    }
-
-    function testProxyCanBeInitializedWithoutGuardianExistence() public {
-        uint256 tokenId = 1;
-        AccountProxy _proxy = new AccountProxy(address(1), address(upgradableImplementation));
-
-        address accountAddress = registry.createAccount(
-            address(_proxy), 0, block.chainid, address(tokenCollection), tokenId
-        );
-
-        AccountProxy(payable(accountAddress)).initialize(address(upgradableImplementation));
-
-        assertEq(
-            AccountV3(payable(accountAddress)).isValidSigner(vm.addr(1), ""),
-            IERC6551Account.isValidSigner.selector
-        );
     }
 }

@@ -3,7 +3,9 @@ pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 
-// @dev manages upgrade and cross-chain execution settings for accounts
+/**
+ * @dev Manages upgrade and cross-chain execution settings for accounts
+ */
 contract AccountGuardian is Ownable2Step {
     /**
      * @dev mapping from implementation => is trusted
@@ -17,6 +19,10 @@ contract AccountGuardian is Ownable2Step {
 
     event TrustedImplementationUpdated(address implementation, bool trusted);
     event TrustedExecutorUpdated(address executor, bool trusted);
+
+    constructor(address owner) {
+        _transferOwnership(owner);
+    }
 
     /**
      * @dev Sets a given implementation address as trusted, allowing accounts to upgrade to this
