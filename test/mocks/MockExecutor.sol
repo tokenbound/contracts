@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
 import "./MockReverter.sol";
@@ -9,30 +9,23 @@ contract MockExecutor is MockReverter {
         return 12345;
     }
 
-    function supportsInterface(bytes4 interfaceId)
-        external
-        pure
-        returns (bool)
-    {
+    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
         return interfaceId == 0x12345678;
     }
 
-    function onERC721Received(
-        address,
-        address,
-        uint256,
-        bytes memory
-    ) public pure returns (bytes4) {
+    function onERC721Received(address, address, uint256, bytes memory)
+        public
+        pure
+        returns (bytes4)
+    {
         return bytes4("");
     }
 
-    function onERC1155Received(
-        address,
-        address,
-        uint256,
-        uint256,
-        bytes memory
-    ) public pure returns (bytes4) {
+    function onERC1155Received(address, address, uint256, uint256, bytes memory)
+        public
+        pure
+        returns (bytes4)
+    {
         return bytes4("");
     }
 
