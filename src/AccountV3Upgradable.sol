@@ -14,6 +14,6 @@ contract AccountV3Upgradable is AccountV3, UUPSUpgradeable {
 
     function _authorizeUpgrade(address implementation) internal virtual override {
         if (!guardian.isTrustedImplementation(implementation)) revert InvalidImplementation();
-        if (!_isValidSigner(_msgSender(), "")) revert NotAuthorized();
+        if (!_isValidExecutor(_msgSender())) revert NotAuthorized();
     }
 }

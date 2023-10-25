@@ -18,7 +18,7 @@ contract DeployAccountV3 is Script {
         address tokenboundSafe = 0x781b6A527482828bB04F33563797d4b696ddF328;
         address erc4337EntryPoint = 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789;
         address multicallForwarder = 0xcA1167915584462449EE5b4Ea51c37fE81eCDCCD;
-        address erc6551Registry = 0x284be69BaC8C983a749956D7320729EB24bc75f9;
+        address erc6551Registry = 0x000000006551c19487814612e58FE06813775758;
 
         address guardian = Create2.computeAddress(
             salt,
