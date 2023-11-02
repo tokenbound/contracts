@@ -1,0 +1,12 @@
+{
+  "name": "tokenbound-contracts",
+  "version": "0.3.0",
+  "files": [
+    "**/*.sol",
+    "README.md"
+  ],
+  "description": "TokenBound implementation",
+  "scripts": {
+    "prepublishOnly": "../script/verify-package-json-in-sync.js"
+  }
+}

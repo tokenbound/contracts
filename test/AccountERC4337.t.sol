@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 
-import "account-abstraction/core/EntryPoint.sol";
+import "@account-abstraction/contracts/core/EntryPoint.sol";
 
 import "erc6551/ERC6551Registry.sol";
 import "erc6551/interfaces/IERC6551Account.sol";

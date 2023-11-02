@@ -1,0 +1,30 @@
+lockfileVersion: '6.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+dependencies:
+  '@account-abstraction/contracts':
+    specifier: ^0.6.0
+    version: 0.6.0
+  '@openzeppelin/contracts':
+    specifier: ^5.0.0
+    version: 5.0.0
+  erc6551:
+    specifier: ^0.3.1
+    version: 0.3.1
+
+packages:
+
+  /@account-abstraction/contracts@0.6.0:
+    resolution: {integrity: sha512-8ooRJuR7XzohMDM4MV34I12Ci2bmxfE9+cixakRL7lA4BAwJKQ3ahvd8FbJa9kiwkUPCUNtj+/zxDQWYYalLMQ==}
+    dev: false
+
+  /@openzeppelin/contracts@5.0.0:
+    resolution: {integrity: sha512-bv2sdS6LKqVVMLI5+zqnNrNU/CA+6z6CmwFXm/MzmOPBRSO5reEJN7z0Gbzvs0/bv/MZZXNklubpwy3v2+azsw==}
+    dev: false
+
+  /erc6551@0.3.1:
+    resolution: {integrity: sha512-4+O7CJ5gn3/s2Mum1QiJDJUbGE1P1m0t3do2nnFAKWEXLubWfZjS12HqraUJ6Y6su3WJ8EqdWm0270gC0bqpCA==}
+    dev: false

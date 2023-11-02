@@ -1,4 +1,4 @@
-account-abstraction/=lib/account-abstraction/contracts/
+@account-abstraction/=lib/account-abstraction/contracts/
 erc6551/=lib/erc6551/src/
 ds-test/=lib/forge-std/lib/ds-test/src/
 erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/

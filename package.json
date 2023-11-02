@@ -1,0 +1,18 @@
+{
+  "name": "tokenbound-contracts",
+  "version": "0.3.0",
+  "scripts": {
+    "compile": "forge test",
+    "format": "forge fmt",
+    "lint": "solhint -w 0 'contracts/**/*.sol'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tokenbound/contracts.git"
+  },
+  "dependencies": {
+    "@account-abstraction/contracts": "^0.6.0",
+    "@openzeppelin/contracts": "^5.0.0",
+    "erc6551": "^0.3.1"
+  }
+}
