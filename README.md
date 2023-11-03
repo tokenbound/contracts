@@ -2,7 +2,7 @@
 
 This repository contains an opinionated [ERC-6551](https://eips.ethereum.org/EIPS/eip-6551) account implementation. The smart contracts are written in Solidity using the [Foundry](https://book.getfoundry.sh/) development framework.
 
-**This project is under active development and may undergo changes until ERC-6551 is finalized.** For the most recently deployed version of these contracts, see the [v0.3.0](https://github.com/tokenbound/contracts/releases/tag/v0.3.0) release. We recommend this version for any production usage.
+**This project is under active development and may undergo changes until ERC-6551 is finalized.** For the most recently deployed version of these contracts, see the [v0.3.1](https://github.com/tokenbound/contracts/releases/tag/v0.3.1) release. We recommend this version for any production usage.
 
 ## Contracts
 
