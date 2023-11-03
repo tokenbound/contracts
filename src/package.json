@@ -1,12 +1,17 @@
 {
-  "name": "tokenbound-contracts",
-  "version": "0.3.0",
+  "name": "tokenbound-account",
+  "version": "0.3.1",
   "files": [
     "**/*.sol",
     "README.md"
   ],
-  "description": "TokenBound implementation",
+  "description": "Test TokenBound implementation",
   "scripts": {
     "prepublishOnly": "../script/verify-package-json-in-sync.js"
+  },
+  "peerDependencies": {
+    "@account-abstraction/contracts": "^0.6.0",
+    "@openzeppelin/contracts": "^4.9.3",
+    "erc6551": "^0.3.1"
   }
 }
