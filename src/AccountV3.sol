@@ -73,7 +73,7 @@ contract AccountV3 is
      *
      * @return address The address which owns the token this account is bound to
      */
-    function owner() public view  virtual returns (address) {
+    function owner() public view virtual returns (address) {
         (uint256 chainId, address tokenContract, uint256 tokenId) = ERC6551AccountLib.token();
         return _tokenOwner(chainId, tokenContract, tokenId);
     }
@@ -185,8 +185,8 @@ contract AccountV3 is
     function _isValidSignature(bytes32 hash, bytes calldata signature)
         internal
         view
-    virtual
-    override(ERC4337Account, Signatory)
+        virtual
+        override(ERC4337Account, Signatory)
         returns (bool)
     {
         uint8 v = uint8(signature[64]);
@@ -265,7 +265,7 @@ contract AccountV3 is
      * @dev Called before executing an operation. Reverts if account is locked. Ensures state is
      * updated prior to execution.
      */
-    function _beforeExecute() internal  virtual override {
+    function _beforeExecute() internal virtual override {
         if (isLocked()) revert AccountLocked();
         _updateState();
     }
@@ -282,7 +282,7 @@ contract AccountV3 is
      * @dev Called before setting overrides on the account. Reverts if account is locked. Updates
      * account state.
      */
-    function _beforeSetOverrides() internal virtual  override {
+    function _beforeSetOverrides() internal virtual override {
         if (isLocked()) revert AccountLocked();
         _updateState();
     }
