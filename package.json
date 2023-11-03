@@ -1,6 +1,6 @@
 {
   "name": "tokenbound-account",
-  "version": "0.3.1",
+  "version": "0.3.1-beta.0",
   "scripts": {
     "compile": "forge test",
     "format": "forge fmt",
