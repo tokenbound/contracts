@@ -16,6 +16,8 @@ The `src/` directory contains the main contracts for the project:
 
 ## Using as a Dependency
 
+### Foundry
+
 If you want to use `tokenbound/contracts` as a dependency in another project, you can add it using `forge install`:
 
 ```sh
@@ -23,6 +25,18 @@ forge install tokenbound=tokenbound/contracts
 ```
 
 This will add `tokenbound/contracts` as a git submodule in your project. For more information on managing dependencies, refer to the [Foundry dependencies guide](https://github.com/foundry-rs/book/blob/master/src/projects/dependencies.md).
+
+### Hardhat
+
+```sh
+npm install tokenbound-contracts
+```
+
+and use, for example, as
+
+```
+import "tokenbound-contracts/AccountV3.sol";
+```
 
 ## Development Setup
 
