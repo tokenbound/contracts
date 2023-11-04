@@ -1,5 +1,5 @@
 {
-  "name": "tokenbound-account",
+  "name": "tokenbound-contracts",
   "version": "0.3.1-beta.0",
   "files": [
     "**/*.sol",
