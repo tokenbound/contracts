@@ -29,13 +29,13 @@ This will add `tokenbound/contracts` as a git submodule in your project. For mor
 ### Hardhat
 
 ```sh
-npm install tokenbound-contracts
+npm install @tokenbound/contracts
 ```
 
 and use, for example, as
 
 ```
-import "tokenbound-contracts/AccountV3.sol";
+import "@tokenbound/contracts/AccountV3.sol";
 ```
 
 ## Development Setup
