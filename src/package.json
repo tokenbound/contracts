@@ -13,5 +13,8 @@
     "@account-abstraction/contracts": "^0.6.0",
     "@openzeppelin/contracts": "^4.9.3",
     "erc6551": "^0.3.1"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
