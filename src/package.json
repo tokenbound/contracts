@@ -7,7 +7,7 @@
   ],
   "description": "Test TokenBound implementation",
   "scripts": {
-    "prepublishOnly": "../bin/verify-package-json-in-sync.js"
+    "prepublishOnly": "../script/verify-package-json-in-sync.js"
   },
   "peerDependencies": {
     "@account-abstraction/contracts": "^0.6.0",
