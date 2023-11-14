@@ -1,0 +1,14 @@
+{
+  "name": "@tokenbound/contracts",
+  "version": "0.3.1-beta.0",
+  "scripts": {
+    "compile": "forge test",
+    "format": "forge fmt",
+    "lint": "solhint -w 0 'contracts/**/*.sol'",
+    "prepublishOnly": "echo 'ERROR: Use script/publish.sh to publish' && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tokenbound/contracts.git"
+  }
+}

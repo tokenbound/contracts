@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import "openzeppelin-contracts/contracts/utils/Create2.sol";
+import "@openzeppelin/contracts/utils/Create2.sol";
 
 library LibSandbox {
     bytes public constant header = hex"604380600d600039806000f3fe73";
