@@ -5,3 +5,4 @@ erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/
 forge-std/=lib/forge-std/src/
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
 multicall-authenticated/=lib/multicall-authenticated/src/
+layerzero-v1/=lib/layerzero-v1/contracts/

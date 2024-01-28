@@ -13,3 +13,6 @@
 [submodule "lib/multicall-authenticated"]
 	path = lib/multicall-authenticated
 	url = https://github.com/jaydenwindle/multicall-authenticated
+[submodule "lib/layerzero-v1"]
+	path = lib/layerzero-v1
+	url = https://github.com/layerZero-labs/solidity-examples
