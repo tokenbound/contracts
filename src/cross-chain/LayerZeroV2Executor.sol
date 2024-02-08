@@ -7,8 +7,6 @@ contract LayerZeroV2Executor {
     uint64 internal constant RECEIVER_VERSION = 1;
     address public immutable endpoint;
 
-    event Executed(bool success, bytes data);
-
     error InvalidSender();
 
     constructor(address _endpoint) {
