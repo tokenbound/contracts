@@ -13,21 +13,11 @@ contract LayerZeroV2Executor {
         endpoint = _endpoint;
     }
 
-    function oAppVersion()
-        public
-        view
-        virtual
-        returns (uint64 senderVersion, uint64 receiverVersion)
-    {
+    function oAppVersion() public view virtual returns (uint64, uint64) {
         return (0, RECEIVER_VERSION);
     }
 
-    function nextNonce(uint32, /*_srcEid*/ bytes32 /*_sender*/ )
-        public
-        view
-        virtual
-        returns (uint64 nonce)
-    {
+    function nextNonce(uint32, bytes32) public view virtual returns (uint64) {
         return 0;
     }
 
