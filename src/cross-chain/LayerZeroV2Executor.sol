@@ -49,6 +49,11 @@ contract LayerZeroV2Executor {
         address src = address(uint160(uint256(_origin.sender)));
 
         (bool success, bytes memory result) = src.call(_message);
-        emit Executed(success, result);
+
+        if (!success) {
+            assembly {
+                revert(add(result, 32), mload(result))
+            }
+        }
     }
 }
