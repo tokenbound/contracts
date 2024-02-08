@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import "forge-std/console.sol";
-
 import {Origin} from "layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 
 contract LayerZeroV2Executor {
@@ -46,8 +44,6 @@ contract LayerZeroV2Executor {
         address, // _executor
         bytes calldata // _extraData
     ) external payable {
-        console.log(msg.sender);
-        console.logBytes32(_origin.sender);
         if (msg.sender != endpoint) revert InvalidSender();
 
         address src = address(uint160(uint256(_origin.sender)));
