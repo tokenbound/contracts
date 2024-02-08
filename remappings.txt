@@ -6,3 +6,11 @@ forge-std/=lib/forge-std/src/
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
 multicall-authenticated/=lib/multicall-authenticated/src/
 layerzero-v1/=lib/layerzero-v1/contracts/
+
+
+layerzero-v2/=lib/layerzero-v2/
+@layerzerolabs/lz-evm-protocol-v2=lib/layerzero-v2/protocol
+@layerzerolabs/lz-evm-messagelib-v2=lib/layerzero-v2/messagelib
+solidity-bytes-utils/=lib/layerzero-v2/oapp/node_modules/solidity-bytes-utils/
+@openzeppelin/contracts-upgradeable/=lib/layerzero-v2/messagelib/node_modules/@openzeppelin/contracts-upgradeable/
+@layerzerolabs/lz-evm-v1-0.7/=lib/layerzero-v2/messagelib/node_modules/@layerzerolabs/lz-evm-v1-0.7/

@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import "forge-std/Test.sol";
+import "forge-std/console.sol";
+
+import {TestHelper as LZTestHelper} from "layerzero-v2/oapp/test/TestHelper.sol";
+import {
+    ILayerZeroEndpointV2,
+    MessagingParams,
+    MessagingFee
+} from "layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import {OptionsBuilder} from "layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 
 import "erc6551/ERC6551Registry.sol";
 
@@ -11,10 +19,11 @@ import "../../src/AccountV3Upgradable.sol";
 import "../../src/AccountGuardian.sol";
 import "../../src/AccountProxy.sol";
 
-import "layerzero-v1/lzApp/mocks/LZEndpointMock.sol";
-import "../../src/cross-chain/LayerZeroV1Executor.sol";
+import "../../src/cross-chain/LayerZeroV2Executor.sol";
 
-contract LayerZeroV1ExecutorTest is Test {
+contract LayerZeroV2ExecutorTest is LZTestHelper {
+    using OptionsBuilder for bytes;
+
     AccountV3 implementation;
     AccountV3Upgradable upgradableImplementation;
     AccountProxy proxy;
@@ -23,12 +32,16 @@ contract LayerZeroV1ExecutorTest is Test {
 
     MockERC721 public tokenCollection;
 
-    LZEndpointMock endpoint;
-    LayerZeroV1Executor executor;
+    LayerZeroV2Executor executor;
 
-    function setUp() public {
-        endpoint = new LZEndpointMock(uint16(block.chainid));
-        executor = new LayerZeroV1Executor(address(endpoint));
+    uint32 originEid = 1;
+    uint32 destinationEid = 2;
+
+    function setUp() public override {
+        super.setUp();
+        setUpEndpoints(2, LibraryType.UltraLightNode);
+
+        executor = new LayerZeroV2Executor(endpoints[destinationEid]);
 
         registry = new ERC6551Registry();
 
@@ -52,13 +65,12 @@ contract LayerZeroV1ExecutorTest is Test {
         guardian.setTrustedExecutor(address(executor), true);
     }
 
-    function testLZV1CrossChainCall() public {
+    function testLZV2CrossChainCall() public {
         uint256 tokenId = 1;
         address user1 = vm.addr(1);
         address user2 = vm.addr(2);
 
         console.log(address(this));
-        console.log(address(endpoint));
         console.log(address(executor));
 
         // destination chain id
@@ -66,45 +78,41 @@ contract LayerZeroV1ExecutorTest is Test {
         address accountAddress = registry.createAccount(
             address(implementation), 0, chainId, address(tokenCollection), tokenId
         );
-        console.log(address(accountAddress));
+
+        console.log(accountAddress);
 
         vm.deal(user1, 1 ether);
         vm.deal(accountAddress, 1 ether);
-        endpoint.setDestLzEndpoint(address(executor), address(endpoint));
 
-        bytes memory adapterParams = endpoint.defaultAdapterParams();
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
         bytes memory dstCallData = abi.encodeWithSignature(
             "execute(address,uint256,bytes,uint8)", user2, 0.1 ether, "", LibExecutor.OP_CALL
         );
-
-        (uint256 fee,) = endpoint.estimateFees(
-            uint16(chainId), accountAddress, dstCallData, false, adapterParams
+        MessagingParams memory params = MessagingParams(
+            destinationEid, addressToBytes32(address(executor)), dstCallData, options, false
         );
+
+        MessagingFee memory fee =
+            ILayerZeroEndpointV2(endpoints[originEid]).quote(params, accountAddress);
 
         // send from TBA on origin chain
         vm.prank(accountAddress);
-        endpoint.send{value: fee}(
-            uint16(chainId),
-            abi.encodePacked(executor, accountAddress),
-            dstCallData,
-            payable(accountAddress),
-            address(0),
-            adapterParams
+        ILayerZeroEndpointV2(endpoints[originEid]).send{value: fee.nativeFee}(
+            params, accountAddress
         );
+
+        verifyPackets(destinationEid, addressToBytes32(address(executor)));
 
         // destination call is executed
         assertEq(user2.balance, 0.1 ether);
 
         // send from non-tba caller
         vm.prank(user1);
-        endpoint.send{value: fee}(
-            uint16(chainId),
-            abi.encodePacked(executor, accountAddress),
-            dstCallData,
-            payable(accountAddress),
-            address(0),
-            adapterParams
+        ILayerZeroEndpointV2(endpoints[originEid]).send{value: fee.nativeFee}(
+            params, accountAddress
         );
+
+        verifyPackets(destinationEid, addressToBytes32(address(executor)));
 
         // destination call is not executed
         assertEq(user2.balance, 0.1 ether);
