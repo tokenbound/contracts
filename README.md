@@ -53,6 +53,10 @@ Then, install the dependencies:
 
 ```sh
 forge install
+# install LZ dependencies
+cd lib/layerzero-v2
+yarn
+yarn build
 ```
 
 This will install the submodule dependencies that are in the project.
